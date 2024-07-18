@@ -344,19 +344,11 @@ loeuf_plot <- ggplot() +
 
 loeuf_plot
 
-# ggarrange(ggarrange(sp_plot, panelA, labels = c("A", "B"), ncol=1, heights=c(1.5, 1)), ggarrange(scatter_plot, rmse_jak, labels = c("C", "D"), ncol=1, heights=c(2, 1)), ncol=2, widths=c(1,1.5))
 
-# ggarrange(sp_plot, scatter_plot, panelA, rmse_jak, labels = c("A", "C", "B", "D"), ncol=2, nrow=2, heights=c(1.5,1), widths=c(1, 1.5))
-
-# ggarrange(ggarrange(panelA, sp_plot, labels = c("A", "B"), ncol=2), ggarrange(scatter_plot, labels = c("C"), ncol=1), ggarrange(rmse_jak, loeuf_plot, labels = c("D", "E"), ncol=2), nrow=3, heights=c(1,1.5,1))
-# ggarrange(ggarrange(panelA, sp_plot, labels = c("A", "B"), ncol=2), ggarrange(scatter_plot, labels = c("C"), ncol=1), ggarrange(rmse_jak, loeuf_plot, labels = c("D", "E"), ncol=2), nrow=3, heights=c(1,1.5,1))
-# 
-# ggarrange(ggarrange(panelA, sp_plot, labels = c("A", "B"), ncol=1, heights=c(1,2)), ggarrange(scatter_plot, labels = c("C"), ncol=1), ggarrange(rmse_jak, loeuf_plot, labels = c("D", "E"), ncol=1, heights = c(1, 2)), nrow=1, widths=c(1,1,1))
-# 
-# ggarrange(ggarrange(panelA, rmse_jak, sp_plot, loeuf_plot, labels = c("A", "D", "B", "E"), ncol=2, nrow=2, heights=c(1,2), widths=c(1, 1)), ggarrange(scatter_plot, labels = c("C"), ncol=1), ncol=1)
 
 last_group <- ggarrange(rmse_jak, loeuf_plot, labels=c("D", "E"), ncol=1, heights=c(1,1.5), font.label = list(size=12))
 # last_group
+
 fig4 <- ggarrange(panelA, NULL, sp_plot, scatter_plot, NULL, last_group, nrow=2, ncol=3, labels=c("A","", "B", "C", "", ""), heights = c(1,2), widths = c(1.25,0.05,1), font.label = list(size=12))
 fig4
 
