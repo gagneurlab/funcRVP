@@ -1,0 +1,26 @@
+Covariates r2 on val: 0.46327158719329176
+After epoch 0: Train loss: 17555.95667, Validation loss: 17365.20696, Train r2: 0.46314, Val r2: 0.46347, Epoch time: 12.74s
+After epoch 1: Train loss: 17555.99626, Validation loss: 17365.98857, Train r2: 0.46312, Val r2: 0.46343, Epoch time: 11.74s
+After epoch 2: Train loss: 17558.13958, Validation loss: 17365.71797, Train r2: 0.46322, Val r2: 0.46346, Epoch time: 11.75s
+After epoch 3: Train loss: 17547.03734, Validation loss: 17365.78646, Train r2: 0.46331, Val r2: 0.46346, Epoch time: 11.79s
+After epoch 4: Train loss: 17544.17818, Validation loss: 17365.67966, Train r2: 0.46343, Val r2: 0.46352, Epoch time: 11.72s
+After epoch 5: Train loss: 17537.55127, Validation loss: 17364.12254, Train r2: 0.46387, Val r2: 0.46399, Epoch time: 11.79s
+After epoch 6: Train loss: 17532.36737, Validation loss: 17353.78302, Train r2: 0.46497, Val r2: 0.4652, Epoch time: 11.96s
+After epoch 7: Train loss: 17533.96573, Validation loss: 17342.93414, Train r2: 0.46502, Val r2: 0.46528, Epoch time: 11.71s
+After epoch 8: Train loss: 17534.74896, Validation loss: 17341.55178, Train r2: 0.46505, Val r2: 0.46528, Epoch time: 11.74s
+After epoch 9: Train loss: 17529.9954, Validation loss: 17340.46579, Train r2: 0.46533, Val r2: 0.46558, Epoch time: 11.76s
+After epoch 10: Train loss: 17534.68856, Validation loss: 17336.81321, Train r2: 0.46675, Val r2: 0.46683, Epoch time: 11.75s
+After epoch 11: Train loss: 17519.10505, Validation loss: 17316.73257, Train r2: 0.46846, Val r2: 0.46824, Epoch time: 11.81s
+After epoch 12: Train loss: 17491.78605, Validation loss: 17302.15284, Train r2: 0.46873, Val r2: 0.46845, Epoch time: 11.77s
+After epoch 13: Train loss: 17486.66185, Validation loss: 17300.19217, Train r2: 0.46898, Val r2: 0.46866, Epoch time: 11.78s
+After epoch 14: Train loss: 17489.64958, Validation loss: 17292.36845, Train r2: 0.46927, Val r2: 0.46896, Epoch time: 11.83s
+After epoch 15: Train loss: 17483.50383, Validation loss: 17289.91135, Train r2: 0.46942, Val r2: 0.46902, Epoch time: 11.82s
+After epoch 16: Train loss: 17477.96667, Validation loss: 17289.48153, Train r2: 0.46955, Val r2: 0.46904, Epoch time: 11.81s
+After epoch 17: Train loss: 17484.3834, Validation loss: 17289.49665, Train r2: 0.46966, Val r2: 0.46907, Epoch time: 11.82s
+After epoch 18: Train loss: 17481.80316, Validation loss: 17289.45871, Train r2: 0.46973, Val r2: 0.46908, Epoch time: 11.89s
+After epoch 19: Train loss: 17477.93991, Validation loss: 17289.14431, Train r2: 0.4698, Val r2: 0.46912, Epoch time: 11.76s
+After epoch 20: Train loss: 17475.05858, Validation loss: 17289.4488, Train r2: 0.4698, Val r2: 0.46912, Epoch time: 11.83s
+After epoch 21: Train loss: 17479.18725, Validation loss: 17289.77462, Train r2: 0.46984, Val r2: 0.46911, Epoch time: 11.82s
+After epoch 22: Train loss: 17483.23757, Validation loss: 17289.8271, Train r2: 0.46988, Val r2: 0.46911, Epoch time: 11.81s
+After epoch 23: Train loss: 17474.17961, Validation loss: 17289.84644, Train r2: 0.46997, Val r2: 0.46913, Epoch time: 11.84s
+After epoch 24: Train loss: 17477.35482, Validation loss: 17289.75228, Train r2: 0.47013, Val r2: 0.4692, Epoch time: 11.87s
