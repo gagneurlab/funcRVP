@@ -1,0 +1,39 @@
+wandb: Currently logged in as: shubhankarlondhe. Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.17.4 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.15.4
+wandb: Run data is saved locally in /s/project/uk_biobank/processed/g2p/wandb/wandb/run-20240717_220911-h61di5kj
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run Glucose_pops
+wandb: ⭐️ View project at https://wandb.ai/shubhankarlondhe/g2p_cov_hyperopt
+wandb: 🚀 View run at https://wandb.ai/shubhankarlondhe/g2p_cov_hyperopt/runs/h61di5kj
+wandb: Waiting for W&B process to finish... (success).
+wandb: - 0.028 MB of 0.028 MB uploaded (0.000 MB deduped)wandb: \ 0.028 MB of 0.053 MB uploaded (0.000 MB deduped)wandb: | 0.028 MB of 0.053 MB uploaded (0.000 MB deduped)wandb: 
+wandb: Run history:
+wandb:        epoch_base_var ██▇▇▇▆▆▆▆▅▅▅▄▄▄▃▃▃▃▂▂▂▂▁▁
+wandb:       epoch_intercept ▆▁▃▆▆▇█▇▆▇█▆▆▅▅▅▆█▇▆▆▆▆█▇
+wandb: epoch_last_layer_bias ██▇▇▇▆▆▅▅▅▅▄▄▄▃▃▃▃▂▂▂▂▁▁▁
+wandb:      epoch_train_loss ▂▃▃▇█▃█▄▁▅▃▃▄▁▃▃▁▇▅▆▄▅▃▃▆
+wandb:        epoch_train_r2 ▆▇██▇▆▆▅▄▃▃▂▂▂▂▂▁▁▁▁▁▁▂▃▆
+wandb:        epoch_val_loss ▄▄▆██▂▁▃▃▅▅▄▄▆▃▇▅▂▂▄▅▅▅▄▃
+wandb:          epoch_val_r2 ▂▂▂▁▁▃▃▃▃▂▂▂▂▂▃▁▂▃▃▂▂▃▄▅█
+wandb:    epoch_val_r2_delta ▂▂▂▁▁▃▃▃▃▂▂▂▂▂▃▁▂▃▃▂▂▃▄▅█
+wandb:             epoch_var █▅▅▃▂▁▂▂▂▃▃▄▃▃▃▃▃▄▄▄▄▄▄▄▄
+wandb: 
+wandb: Run summary:
+wandb:               best_r2 0.10795
+wandb:          covariate_r2 0.10728
+wandb:        epoch_base_var 4e-05
+wandb:       epoch_intercept 0.01426
+wandb: epoch_last_layer_bias -7.02763
+wandb:      epoch_train_loss 21300.33063
+wandb:        epoch_train_r2 0.11564
+wandb:        epoch_val_loss 19474.17917
+wandb:          epoch_val_r2 0.10795
+wandb:    epoch_val_r2_delta 0.00626
+wandb:             epoch_var 0.85319
+wandb:        num_parameters 1920
+wandb: 
+wandb: 🚀 View run Glucose_pops at: https://wandb.ai/shubhankarlondhe/g2p_cov_hyperopt/runs/h61di5kj
+wandb: Synced 6 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: /s/project/uk_biobank/processed/g2p/wandb/wandb/run-20240717_220911-h61di5kj/logs

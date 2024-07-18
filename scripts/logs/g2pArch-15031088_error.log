@@ -1,0 +1,39 @@
+wandb: Currently logged in as: shubhankarlondhe. Use `wandb login --relogin` to force relogin
+wandb: wandb version 0.17.4 is available!  To upgrade, please run:
+wandb:  $ pip install wandb --upgrade
+wandb: Tracking run with wandb version 0.15.4
+wandb: Run data is saved locally in /s/project/uk_biobank/processed/g2p/wandb/wandb/run-20240717_224631-lcnlpx2y
+wandb: Run `wandb offline` to turn off syncing.
+wandb: Syncing run IGF1_omics
+wandb: ⭐️ View project at https://wandb.ai/shubhankarlondhe/g2p_cov_hyperopt
+wandb: 🚀 View run at https://wandb.ai/shubhankarlondhe/g2p_cov_hyperopt/runs/lcnlpx2y
+wandb: Waiting for W&B process to finish... (success).
+wandb: 
+wandb: Run history:
+wandb:        epoch_base_var ▁▁▂▂▂▃▃▃▃▄▄▄▅▅▅▆▆▆▇▇▇▇███
+wandb:       epoch_intercept ▂▃█▅▃▁▁▁▂▂▂▂▃▃▃▂▃▃▂▂▃▄▂▂▂
+wandb: epoch_last_layer_bias ▁▁▁▂▂▂▂▃▃▃▃▃▄▄▄▅▅▅▆▆▇▇███
+wandb:      epoch_train_loss ▇▆▅▄▅▄▅▂▄▅▃▆▄▅▅█▆▄▆▄▁▃▃▁▂
+wandb:        epoch_train_r2 ▁▁▁▁▁▁▂▂▂▂▂▂▂▂▂▃▄▄▅▆▇▇███
+wandb:        epoch_val_loss ▇█▇▇▇▇▇▇▇▇▇▇█▇▇▇▇▇▆▅▂▂▁▁▁
+wandb:          epoch_val_r2 ▂▁▂▂▂▂▂▂▂▂▂▂▁▂▂▂▃▃▅▇█████
+wandb:    epoch_val_r2_delta ▂▁▂▂▂▂▂▂▂▂▂▂▁▂▂▂▃▃▅▇█████
+wandb:             epoch_var █▇▅▅▄▄▅▄▄▅▅▅▅▅▅▆▅▅▄▃▂▃▂▁▁
+wandb: 
+wandb: Run summary:
+wandb:               best_r2 0.38176
+wandb:          covariate_r2 0.37993
+wandb:        epoch_base_var 6e-05
+wandb:       epoch_intercept 0.01231
+wandb: epoch_last_layer_bias -8.91714
+wandb:      epoch_train_loss 18484.11065
+wandb:        epoch_train_r2 0.37559
+wandb:        epoch_val_loss 18155.44627
+wandb:          epoch_val_r2 0.38176
+wandb:    epoch_val_r2_delta 0.00482
+wandb:             epoch_var 0.61591
+wandb:        num_parameters 828
+wandb: 
+wandb: 🚀 View run IGF1_omics at: https://wandb.ai/shubhankarlondhe/g2p_cov_hyperopt/runs/lcnlpx2y
+wandb: Synced 6 W&B file(s), 0 media file(s), 0 artifact file(s) and 0 other file(s)
+wandb: Find logs at: /s/project/uk_biobank/processed/g2p/wandb/wandb/run-20240717_224631-lcnlpx2y/logs
