@@ -52,8 +52,6 @@ model_plot <- ggplot(data = model_plot_dt, aes(x=omics_pops_bayesian_v5cov_deepR
   ylim(-1.2, 0.85) +
   xlab(TeX("$R^2$, FuncRVP modeling expectation")) +
   ylab(TeX("$R^2$, FuncRVP modeling variance")) +
-  # scale_y_sqrt(na.value=0) +
-  # scale_x_sqrt(na.value=0) +
   theme_cowplot() +
   guides(color = guide_legend(textsize=5, keyheight = 2.5))
 
@@ -67,12 +65,6 @@ geno_plot <- ggplot(data = geno_plot_dt, aes(x=omics_pops_bayesian_v98cov_pLoF, 
   geom_point() +
   xlab(TeX("FuncRVP using pLoF (Relative $\\Delta R^2$)")) + 
   ylab(TeX("FuncRVP using DeepRVAT (Relative $\\Delta R^2$)")) + 
-  # xlab(TeX("Relative $ \\Delta R^2_{FuncRVAT \\; using \\; pLoF} $")) +
-  # ylab(TeX("Relative $ \\Delta R^2_{FuncRVAT \\; using \\; DeepRVAT} $")) +
-  # xlab(TeX("$R^2$, FuncRVAT using pLoF")) +
-  # ylab(TeX("$R^2$, FuncRVAT using DeepRVAT")) +
-  # xlim(0, 0.1) +
-  # ylim(0, 0.1) +
   scale_y_sqrt(na.value=0, limits=c(0, 0.1)) +
   scale_x_sqrt(na.value=0, limits=c(0, 0.1)) +
   theme_cowplot() +
@@ -91,12 +83,6 @@ reg_plot <- ggplot(data = geno_plot_dt, aes(x=omics_pops_bayesian_v107cov_flat_d
   geom_point() +
   xlab(TeX("Bayesian model with constant prior (Relative $\\Delta R^2$)")) + 
   ylab(TeX("FuncRVP using embeddings (Relative $\\Delta R^2$)")) + 
-  # xlab(TeX("Relative $ \\Delta R^2_{FuncRVAT \\; using \\; pLoF} $")) +
-  # ylab(TeX("Relative $ \\Delta R^2_{FuncRVAT \\; using \\; DeepRVAT} $")) +
-  # xlab(TeX("$R^2$, FuncRVAT using pLoF")) +
-  # ylab(TeX("$R^2$, FuncRVAT using DeepRVAT")) +
-  # xlim(0, 0.1) +
-  # ylim(0, 0.1) +
   scale_y_sqrt(na.value=0, limits=c(0, 0.1)) +
   scale_x_sqrt(na.value=0, limits=c(0, 0.1)) +
   theme_cowplot() +

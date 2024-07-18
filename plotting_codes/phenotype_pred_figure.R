@@ -19,19 +19,12 @@ model_name_vec <- c(
 dt <- read_parquet('/s/project/geno2pheno/predictions/bayesian/best_model_pred/v108cov_deepRVAT_predictions_extended.pq') %>% as.data.table()
 # dt <- read_parquet('/s/project/geno2pheno/predictions/bayesian/v1_same_arch_deepRVAT_omics_pops_predictions_extended.pq') %>% as.data.table()
 
-# Flat prior
-# dt_flat <- read_parquet('/s/project/geno2pheno/predictions/bayesian/v107cov_flat_deepRVAT_predictions_extended.pq') %>% as.data.table()
-# dt_flat[, .N, by=.(model, trait)]
 
 # LM model predictions
 dt_ols <- read_parquet('/s/project/geno2pheno/predictions/bayesian/best_model_pred/lm_filteredv3_deepRVAT_predictions_extended.pq') %>% as.data.table()
 dt_ols[, version := NA]
 dt_ols[, .N, by=.(model, trait)]
 
-# pLoF predictions
-# dt2 <- read_parquet('/s/project/geno2pheno/predictions/bayesian/v98cov_pLoF_predictions_extended.pq') %>% as.data.table()
-# dt2[, unique(model)]
-# dt2 <- dt2[model %in% c("omics_pops_bayesian_v98cov_pLoF", "lm_sign_genes_pLoF")]
 
 dt <- rbindlist(list(dt, dt_ols), use.names=TRUE, fill = TRUE)
 
@@ -53,87 +46,87 @@ dt[, genotype:=NULL]
 dt[, common_residual:=NULL]
 
 # PREP data for bootstraps
-# dt_plot <- dcast(dt, ... ~ model, value.var = 'pred')
-# dt_plot <- melt(dt_plot, id.vars = c("trait", "phenocode", "individual", "trait_measurement", baseline_models), variable.name = "model", value.name = "model_pred")
-# dt_plot <- melt(dt_plot, id.vars = c("trait", "phenocode", "individual", "trait_measurement", "model", "model_pred"), variable.name = "baseline_model", value.name = "baseline_model_pred")
-# dt_plot[, unique(baseline_model)]
-#
-# dt_plot <- dt_plot[baseline_model != 'lm_cov']
-# unique(dt_plot[, .(model, baseline_model)])
+dt_plot <- dcast(dt, ... ~ model, value.var = 'pred')
+dt_plot <- melt(dt_plot, id.vars = c("trait", "phenocode", "individual", "trait_measurement", baseline_models), variable.name = "model", value.name = "model_pred")
+dt_plot <- melt(dt_plot, id.vars = c("trait", "phenocode", "individual", "trait_measurement", "model", "model_pred"), variable.name = "baseline_model", value.name = "baseline_model_pred")
+dt_plot[, unique(baseline_model)]
+
+dt_plot <- dt_plot[baseline_model != 'lm_cov']
+unique(dt_plot[, .(model, baseline_model)])
 
 
 # Compare deepRVAT against deepRVAT and pLoF against pLoF
-# dt_plot <- dt_plot[(grepl('pLoF', model, ignore.case = TRUE, fixed = TRUE) & grepl('pLoF', baseline_model, ignore.case = TRUE, fixed = TRUE)) | (grepl('deepRVAT', model, ignore.case = TRUE, fixed = TRUE) & grepl('deepRVAT', baseline_model, ignore.case = TRUE, fixed = TRUE))]
-# unique(dt_plot[, .(model, baseline_model)])
+dt_plot <- dt_plot[(grepl('pLoF', model, ignore.case = TRUE, fixed = TRUE) & grepl('pLoF', baseline_model, ignore.case = TRUE, fixed = TRUE)) | (grepl('deepRVAT', model, ignore.case = TRUE, fixed = TRUE) & grepl('deepRVAT', baseline_model, ignore.case = TRUE, fixed = TRUE))]
+unique(dt_plot[, .(model, baseline_model)])
 
-# dt_plot <- dcast(dt, ... ~ model, value.var = 'pred')
-# 
-# dt_plot[, `:=` (model = 'omics_pops_bayesian_v108cov_deepRVAT',
-#                 model_pred = omics_pops_bayesian_v108cov_deepRVAT,
-#                 baseline_model = 'lm_sign_genes_deepRVAT',
-#                 baseline_model_pred = lm_sign_genes_deepRVAT,
-#                 PRS_model = 'lm_cov',
-#                 PRS_model_pred = lm_cov)]
-# 
-# dt_plot[, `:=` (omics_pops_bayesian_v108cov_deepRVAT = NULL,
-#                 lm_sign_genes_deepRVAT = NULL,
-#                 lm_cov = NULL)]
+dt_plot <- dcast(dt, ... ~ model, value.var = 'pred')
+#
+dt_plot[, `:=` (model = 'omics_pops_bayesian_v108cov_deepRVAT',
+                model_pred = omics_pops_bayesian_v108cov_deepRVAT,
+                baseline_model = 'lm_sign_genes_deepRVAT',
+                baseline_model_pred = lm_sign_genes_deepRVAT,
+                PRS_model = 'lm_cov',
+                PRS_model_pred = lm_cov)]
+#
+dt_plot[, `:=` (omics_pops_bayesian_v108cov_deepRVAT = NULL,
+                lm_sign_genes_deepRVAT = NULL,
+                lm_cov = NULL)]
 
 # # Compute R2 -------------------------------------------------
-# r2_general <-function(preds,actual){
-#   return(1- sum((preds - actual) ^ 2)/sum((actual - mean(actual))^2))
-# }
-# 
-# 
+r2_general <-function(preds,actual){
+  return(1- sum((preds - actual) ^ 2)/sum((actual - mean(actual))^2))
+}
+
+#
 # # Bootstrap -------------------------------------------------
-# N_rep <- 2000
-# # list_rep <- lapply(1:N_rep, function(x) dt_plot[sample(1:.N, .N, replace=TRUE), .SD, by = .(model, trait, baseline_model)][,.(r2_diff = r2_general(model_pred, trait_measurement) - r2_general(baseline_model_pred, trait_measurement)), by=.(model, trait, baseline_model)])
-# list_rep <- lapply(1:N_rep, function(x) dt_plot[sample(1:.N, .N, replace=TRUE), .SD, by = .(model, trait, baseline_model)][,.(model_r2 = r2_general(model_pred, trait_measurement),
-#                                                                                                                               baseline_model_r2 = r2_general(baseline_model_pred, trait_measurement),
-#                                                                                                                               PRS_model_r2 = r2_general(PRS_model_pred, trait_measurement)), by=.(model, trait, baseline_model)])
-# names(list_rep) <- 1:length(list_rep)
-# 
-# bs_model_dt <- rbindlist(list_rep, idcol = "trial")
-# bs_model_dt[, `:=` (r2_diff = model_r2 - baseline_model_r2,
-#                     rel_delta_r2_model = model_r2 - PRS_model_r2,
-#                     rel_delta_r2_baseline = baseline_model_r2 - PRS_model_r2)]
-# 
-# std_err_dt <- bs_model_dt[,.(SE_rel_delta_r2_model = sd(rel_delta_r2_model),
-#                SE_rel_delta_r2_baseline = sd(rel_delta_r2_baseline)), by = .(model, baseline_model, trait)]
-# 
-# 
-# stats_plot <- bs_model_dt[, .(N_greater = sum(r2_diff > 0), N_lesser = sum(r2_diff < 0)), by=.(model, trait, baseline_model)]
-# stats_plot[, pval:= 2 * pmin((N_greater + 1)/(N_rep + 1), (N_lesser + 1)/(N_rep + 1))]
-# 
-# stats_plot <- merge(stats_plot, std_err_dt, by = c('model', 'baseline_model', 'trait'))
-# stats_plot
-# 
+N_rep <- 2000
+# list_rep <- lapply(1:N_rep, function(x) dt_plot[sample(1:.N, .N, replace=TRUE), .SD, by = .(model, trait, baseline_model)][,.(r2_diff = r2_general(model_pred, trait_measurement) - r2_general(baseline_model_pred, trait_measurement)), by=.(model, trait, baseline_model)])
+list_rep <- lapply(1:N_rep, function(x) dt_plot[sample(1:.N, .N, replace=TRUE), .SD, by = .(model, trait, baseline_model)][,.(model_r2 = r2_general(model_pred, trait_measurement),
+                                                                                                                              baseline_model_r2 = r2_general(baseline_model_pred, trait_measurement),
+                                                                                                                              PRS_model_r2 = r2_general(PRS_model_pred, trait_measurement)), by=.(model, trait, baseline_model)])
+names(list_rep) <- 1:length(list_rep)
+#
+bs_model_dt <- rbindlist(list_rep, idcol = "trial")
+bs_model_dt[, `:=` (r2_diff = model_r2 - baseline_model_r2,
+                    rel_delta_r2_model = model_r2 - PRS_model_r2,
+                    rel_delta_r2_baseline = baseline_model_r2 - PRS_model_r2)]
+#
+std_err_dt <- bs_model_dt[,.(SE_rel_delta_r2_model = sd(rel_delta_r2_model),
+               SE_rel_delta_r2_baseline = sd(rel_delta_r2_baseline)), by = .(model, baseline_model, trait)]
+#
+#
+stats_plot <- bs_model_dt[, .(N_greater = sum(r2_diff > 0), N_lesser = sum(r2_diff < 0)), by=.(model, trait, baseline_model)]
+stats_plot[, pval:= 2 * pmin((N_greater + 1)/(N_rep + 1), (N_lesser + 1)/(N_rep + 1))]
+#
+stats_plot <- merge(stats_plot, std_err_dt, by = c('model', 'baseline_model', 'trait'))
+stats_plot
+#
 # # compute R2 for plot --------------------
-# a <- dcast(dt[, .(r2 = r2_general(pred, trait_measurement)), by = .(model, trait)], ...~model, value.var = 'r2')
-# a <- melt(a, id.vars = c('trait', 'lm_cov'), variable.name = "model", value.name = "r2")
-# a[, delta_r2 := r2 - lm_cov]
-# a[, rel_delta_r2 := delta_r2/lm_cov]
-# 
+a <- dcast(dt[, .(r2 = r2_general(pred, trait_measurement)), by = .(model, trait)], ...~model, value.var = 'r2')
+a <- melt(a, id.vars = c('trait', 'lm_cov'), variable.name = "model", value.name = "r2")
+a[, delta_r2 := r2 - lm_cov]
+a[, rel_delta_r2 := delta_r2/lm_cov]
+
 # # Relative Delta R2
-# dt_plot_r2_rel <- dcast(a[,.(trait, model, rel_delta_r2)], ... ~ model, value.var = 'rel_delta_r2')
-# dt_plot_r2_rel <- melt(dt_plot_r2_rel, id.vars = c("trait", baseline_models[baseline_models != 'lm_cov']), variable.name = "model", value.name = "model_r2")
-# dt_plot_r2_rel <- melt(dt_plot_r2_rel, id.vars = c("trait", "model", "model_r2"), variable.name = "baseline_model", value.name = "baseline_model_r2")
-# # dt_plot_r2_rel  <- melt(dt_plot_r2_rel , id.vars = c("trait", 'lm_sign_genes_pLoF', 'lm_sign_genes_deepRVAT'), variable.name = "model", value.name = "model_r2")
-# # dt_plot_r2_rel  <- melt(dt_plot_r2_rel , id.vars = c("trait", "model", "model_r2"), variable.name = "baseline_model", value.name = "baseline_model_r2")
-# 
-# dt_plot_r2_rel <- merge(dt_plot_r2_rel, stats_plot[baseline_model != 'lm_cov'], by = c("model", "trait", "baseline_model"))
-# 
-# dt_plot_r2_rel[, unique(model)]
-# 
-# dt_plot_r2_rel[model=='omics_pops_bayesian_v108cov_deepRVAT' & pval<0.05, .(trait, model_r2, baseline_model_r2, pval)]
-# 
-# dt_plot_r2_rel[, point_color := ifelse(pval<=0.05, ifelse(model_r2>=baseline_model_r2, 'Significantly\nbetter', 'Significantly\nworse'), 'No significant\ndifference')]
-# dt_plot_r2_rel[point_color=='Significantly\nbetter' & baseline_model=='lm_sign_genes_deepRVAT', .N]
-# 
-# dt_plot_r2_rel[, `:=` (x_min = baseline_model_r2 - 1.96*SE_rel_delta_r2_baseline,
-#                        x_max = baseline_model_r2 + 1.96*SE_rel_delta_r2_baseline,
-#                        y_min = model_r2 - 1.96*SE_rel_delta_r2_model,
-#                        y_max = model_r2 + 1.96*SE_rel_delta_r2_model)]
+dt_plot_r2_rel <- dcast(a[,.(trait, model, rel_delta_r2)], ... ~ model, value.var = 'rel_delta_r2')
+dt_plot_r2_rel <- melt(dt_plot_r2_rel, id.vars = c("trait", baseline_models[baseline_models != 'lm_cov']), variable.name = "model", value.name = "model_r2")
+dt_plot_r2_rel <- melt(dt_plot_r2_rel, id.vars = c("trait", "model", "model_r2"), variable.name = "baseline_model", value.name = "baseline_model_r2")
+dt_plot_r2_rel  <- melt(dt_plot_r2_rel , id.vars = c("trait", 'lm_sign_genes_pLoF', 'lm_sign_genes_deepRVAT'), variable.name = "model", value.name = "model_r2")
+dt_plot_r2_rel  <- melt(dt_plot_r2_rel , id.vars = c("trait", "model", "model_r2"), variable.name = "baseline_model", value.name = "baseline_model_r2")
+#
+dt_plot_r2_rel <- merge(dt_plot_r2_rel, stats_plot[baseline_model != 'lm_cov'], by = c("model", "trait", "baseline_model"))
+#
+dt_plot_r2_rel[, unique(model)]
+
+dt_plot_r2_rel[model=='omics_pops_bayesian_v108cov_deepRVAT' & pval<0.05, .(trait, model_r2, baseline_model_r2, pval)]
+#
+dt_plot_r2_rel[, point_color := ifelse(pval<=0.05, ifelse(model_r2>=baseline_model_r2, 'Significantly\nbetter', 'Significantly\nworse'), 'No significant\ndifference')]
+dt_plot_r2_rel[point_color=='Significantly\nbetter' & baseline_model=='lm_sign_genes_deepRVAT', .N]
+#
+dt_plot_r2_rel[, `:=` (x_min = baseline_model_r2 - 1.96*SE_rel_delta_r2_baseline,
+                       x_max = baseline_model_r2 + 1.96*SE_rel_delta_r2_baseline,
+                       y_min = model_r2 - 1.96*SE_rel_delta_r2_model,
+                       y_max = model_r2 + 1.96*SE_rel_delta_r2_model)]
 
 # color_vec <- c('Significantly\nbetter' = "#33A02C", 'No significant\ndifference' = "gray", 'Significantly\nworse'="#FF5F30")
 color_vec <- c('Significantly\nbetter' = "chartreuse4", 'No significant\ndifference' = "gray", 'Significantly\nworse'="firebrick3")
@@ -142,7 +135,7 @@ theme(axis.text=element_text(size=8),
       text = element_text(size=8))
 
 # fwrite(dt_plot_r2_rel, "/s/project/geno2pheno/results/bootstrap_r2_results_with_SE.csv")
-dt_plot_r2_rel <- fread("/s/project/geno2pheno/results/bootstrap_r2_results_with_SE.csv")
+# dt_plot_r2_rel <- fread("/s/project/geno2pheno/results/bootstrap_r2_results_with_SE.csv")
 
 # 'omics_pops_bayesian_v1_same_arch_deepRVAT_omics_pops'
 lm_plot <- ggplot(data = dt_plot_r2_rel[model=='omics_pops_bayesian_v108cov_deepRVAT' & baseline_model=='lm_sign_genes_deepRVAT'], aes(x=baseline_model_r2, y=model_r2, color=point_color)) +
