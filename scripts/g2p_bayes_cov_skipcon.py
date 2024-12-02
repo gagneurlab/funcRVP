@@ -72,7 +72,8 @@ class VarPredModel(nn.Module):
             self.activation = nn.CELU()
         else:
             self.activation = nn.Identity()
-        
+
+        # Define the architecture of f(E)
         self.layers = nn.ModuleList()
         if n_hidden>=0:
             if n_hidden>0:
@@ -94,7 +95,8 @@ class VarPredModel(nn.Module):
                 self.layers.append(nn.Linear(emb_dim, 1))
             if last_layer_bias:
                 self.layers[-1].bias.data.fill_(last_layer_bias)
-            
+        
+        # No embedding, pass a constant value as the variance <=> Ridge regression
         else:
             self.layers.append(ConstantModule(last_layer_bias if last_layer_bias else 0))
             
@@ -123,6 +125,7 @@ class VarPredModel(nn.Module):
         
         # Initialize covariate effects
         self.gamma = nn.Parameter(torch.zeros(n_cov).to(device))
+        # print(self.gamma.shape)
         
         if n_genes and gene_var_init:
             self.gene_var = nn.Parameter(gene_var_init*torch.ones(n_genes, 1).to(device))
@@ -198,6 +201,7 @@ class G2P_Model(nn.Module):
     def forward(self, G, emb, C, device=None):
         gE, var, b, gamma, base_var = self.var_pred_model(emb)
         cov = (G * gE.squeeze(1)) @ G.transpose(1,0) + torch.diag(torch.exp(var).expand(G.shape[0]))
+        # print(C.shape, gamma.shape)
         pred = MultivariateNormal(loc = (C @ gamma) + b.expand(G.shape[0]), scale_tril = torch.linalg.cholesky(cov)) #torch.linalg???
         return pred
     
@@ -236,19 +240,36 @@ class G2P_Model(nn.Module):
             n_genes = G.shape[1]
             gE, var, b, gamma, base_var = self.var_pred_model(emb)
             sigma_inv = torch.diag((1/gE).squeeze()) + (1/torch.exp(var))[0] * (torch.transpose(G, 0, 1) @ G)
-            sigma = torch.linalg.inv(sigma_inv)
-            mean_beta = (sigma @ ((1/torch.exp(var))[0] * torch.transpose(G, 0, 1) @ (y-((C @ gamma)+b)))).detach().cpu().numpy()
+            
+            # sigma = torch.linalg.inv(sigma_inv)
+            # mean_beta = (sigma @ ((1/torch.exp(var))[0] * torch.transpose(G, 0, 1) @ (y-((C @ gamma)+b)))).detach().cpu().numpy()
+        # self.mean_beta = mean_beta
+        # self.var_beta = np.diag(sigma.detach().cpu().numpy())
+
+            # sigma = torch.linalg.inv(sigma_inv).detach().cpu().numpy()
+            sigma = torch.linalg.inv(sigma_inv.detach().cpu()).numpy()
+            mean_beta = (sigma @ ((1/torch.exp(var))[0].detach().cpu().numpy() * torch.transpose(G, 0, 1).detach().cpu().numpy() @ (y.detach().cpu().numpy() - ((C.detach().cpu().numpy() @ gamma.detach().cpu().numpy()) + b.detach().cpu().numpy()))))
         self.mean_beta = mean_beta
-        self.var_beta = np.diag(sigma.detach().cpu().numpy())
+        self.var_beta = np.diag(sigma)
         return mean_beta
     
     # Compute and return mean and variance of posterior (Redundant - above function)
+    # def recompute_posterior(self, G, gE, var, b, gamma, C, y, device=None):
+    #     with torch.no_grad():
+    #         sigma_inv = torch.diag((1/gE).squeeze()) + (1/torch.exp(var))[0] * (torch.transpose(G, 0, 1) @ G)
+    #         sigma = torch.linalg.inv(sigma_inv)
+    #         mean_beta = (sigma @ ((1/torch.exp(var))[0] * torch.transpose(G, 0, 1) @ (y-((C @ gamma)+b)))).detach().cpu().numpy()
+    #         var_beta = np.diag(sigma.detach().cpu().numpy())
+    #     return mean_beta, var_beta
+
+    # Recompute posterior on the CPU
     def recompute_posterior(self, G, gE, var, b, gamma, C, y, device=None):
         with torch.no_grad():
             sigma_inv = torch.diag((1/gE).squeeze()) + (1/torch.exp(var))[0] * (torch.transpose(G, 0, 1) @ G)
-            sigma = torch.linalg.inv(sigma_inv)
-            mean_beta = (sigma @ ((1/torch.exp(var))[0] * torch.transpose(G, 0, 1) @ (y-((C @ gamma)+b)))).detach().cpu().numpy()
-            var_beta = np.diag(sigma.detach().cpu().numpy())
+            sigma = torch.linalg.inv(sigma_inv.detach().cpu()).numpy()
+            
+            mean_beta = (sigma @ ((1/torch.exp(var))[0].detach().cpu().numpy() * torch.transpose(G, 0, 1).detach().cpu().numpy() @ (y.detach().cpu().numpy() - ((C.detach().cpu().numpy() @ gamma.detach().cpu().numpy()) + b.detach().cpu().numpy()))))
+            var_beta = np.diag(sigma)
         return mean_beta, var_beta
     
     # Phenotype prediction using posterior beta and covariates
@@ -484,6 +505,8 @@ class G2P_Model(nn.Module):
         
         # Compute posterior using train and validation data to evaluate model on test set.
         if n_val_samples:
+            # device = 'cpu'
+            
             mean_beta, var_beta = self.recompute_posterior(torch.cat([G_torch, G_val_torch]), torch.from_numpy(self.gE_by_epoch[self.best_r2_epoch].astype("float32")).to(device), torch.from_numpy(self.var_by_epoch[self.best_r2_epoch].astype("float32")).to(device), torch.FloatTensor([self.intercept_by_epoch[self.best_r2_epoch]]).to(device), torch.from_numpy(self.best_r2_gamma.astype("float32")).to(device), torch.cat([C_torch, C_val_torch]), torch.cat([y_torch, y_val_torch]), device=None)
             self.best_r2_trainval_mean_beta = mean_beta
             self.best_r2_trainval_var_beta = var_beta
