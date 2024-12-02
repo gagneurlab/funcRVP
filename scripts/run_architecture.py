@@ -14,13 +14,14 @@ import plotnine as pn
 
 import wandb
 import optuna
-import dataloader
+# import dataloader
+import dataloader_clean
 import g2p_bayes_cov_skipcon as g2p_bayes_cov
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
-def get_best_arch(trait, study_version="v108cov_deepRVAT", embedding_type="omics_pops"):
+def get_best_arch(trait, study_version="v2cleansplitHO_deepRVAT", embedding_type="omics_pops"):
 
     best_trial_params = {}
     
@@ -54,9 +55,13 @@ parser.add_argument('--trait', '-t', type=str, help='Trait')
 parser.add_argument('--embedding', '-e', type=str, default='omics_pops', help='Embedding')
 parser.add_argument('--genotype', '-g', type=str, default='deepRVAT', help='Genotype matrix type')
 parser.add_argument('--version', '-v', type=str, help='Model version')
+parser.add_argument('--test_split_size', type=float, help='Test split size')
+parser.add_argument('--no_emb', action='store_true', default=False, help='No embedding, constant regularization')
 parser.add_argument('--shuffled_pheno', action='store_true', default=False, help='Shuffle phenotype')
 parser.add_argument('--shuffled_emb', action='store_true', default=False, help='Shuffle embedding-gene map')
-parser.add_argument('--random_seed', type=int, default=1234, help='Random seed to shuffle phenotype')
+parser.add_argument('--random_emb', action='store_true', default=False, help='Generate embeddings randomly from Gaussian')
+parser.add_argument('--random_seed', type=int, default=0, help='Random seed to shuffle phenotype')
+
 
 # Parse command-line arguments
 args = parser.parse_args()
@@ -65,22 +70,29 @@ trait = args.trait
 embedding_type = args.embedding
 genotype = args.genotype
 version = args.version
+test_size = args.test_split_size
+no_embedding = args.no_emb
 shuffled_phenotype = args.shuffled_pheno
 shuffled_embedding = args.shuffled_emb
+random_embedding = args.random_emb
 np_random_seed = args.random_seed
+
 
 # shuffled_embedding = False
 
-study_version = f"{version}{f'_shuffledpheno{np_random_seed}' if shuffled_phenotype else ''}{f'_shuffledemb{np_random_seed}' if shuffled_embedding else ''}_{genotype}"
-study_name = f"study_{study_version}_{embedding_type}"
+study_version = f"{version}{f'_shuffledpheno{np_random_seed}' if shuffled_phenotype else ''}{f'_shuffledemb{np_random_seed}' if shuffled_embedding else ''}{'_noemb' if no_embedding else ''}_{genotype}"
+study_name = f"study_{study_version}{f'_testsplit{test_size}' if test_size else ''}_{embedding_type}"
 
-    
 only_genebass_genes = False #restrict everything to genebass genes
-extend_covariates = True #extend covariates with age**2, age:sex, age**2:sex 
-normalize = True #z-score normalize covariates
+extend_covariates = True #extend covariates with age**2, age:sex, age**2:sex
+
+use_prs = True
+normalize_covariates = True #z-score normalize covariates
 dataset_version = "filteredv3" #dataset to use (filteredv2 has removed non-Caucasians)
 
-(gt_train, gt_val, gt_test), (y_train_residual, y_val_residual, y_test_residual), emb, gene_list, (id_train, id_val, id_test), (trait_measurement_train, trait_measurement_val, trait_measurement_test), (covariates_train, covariates_val, covariates_test) = dataloader.load_data(trait, embedding_type, add_loeuf=False, add_alpha_mis=False, add_gwas_hits=False, only_genebass_genes=only_genebass_genes, extend_covariates=extend_covariates, normalize=normalize, version=dataset_version, genotype=genotype)
+# (gt_train, gt_val, gt_test), (y_train_residual, y_val_residual, y_test_residual), emb, gene_list, (id_train, id_val, id_test), (trait_measurement_train, trait_measurement_val, trait_measurement_test), (covariates_train, covariates_val, covariates_test) = dataloader.load_data(trait, embedding_type, add_loeuf=False, add_alpha_mis=False, add_gwas_hits=False, only_genebass_genes=only_genebass_genes, extend_covariates=extend_covariates, normalize=normalize_covariates, version=dataset_version, genotype=genotype)
+
+(gt_train, gt_val, gt_test), (y_train_residual, y_val_residual, y_test_residual), emb, gene_list, (id_train, id_val, id_test), (trait_measurement_train, trait_measurement_val, trait_measurement_test), (covariates_train, covariates_val, covariates_test) = dataloader_clean.load_data(trait, embedding_type=embedding_type, use_prs=use_prs, normalize_covariates=normalize_covariates, version=dataset_version, genotype=genotype, test_split_size=test_size, split_seed=0)
 
 if embedding_type is None:
     emb = np.zeros(len(gene_list))
@@ -95,14 +107,23 @@ if shuffled_embedding:
     np.random.seed(np_random_seed)
     emb = np.random.permutation(emb)
 
+if random_embedding:
+    emb = np.random.normal(loc=0, scale=1, size=emb.shape)
 
 storage = optuna.storages.JournalStorage(
     optuna.storages.JournalFileStorage(f"/s/project/uk_biobank/processed/g2p/optuna/journal.log"),
 )
     
-# best_model_arch = get_best_arch(trait=trait, study_version="v108cov_deepRVAT", embedding_type=embedding_type)
 best_model_arch = get_best_arch(trait=trait, study_version="v108cov_deepRVAT", embedding_type="omics_pops")
+# best_model_arch = get_best_arch(trait=trait, study_version="v2cleansplitHO_deepRVAT", embedding_type="omics_pops")
 
+# To get constant regularization
+if no_embedding:
+    best_n_hidden = -1
+    base_var_init = 5e-3
+else:
+    best_n_hidden = best_model_arch['n_hidden'] #number of hidden layers in f(E)
+    base_var_init = 5e-5
 
 args = {
     "trait": trait,
@@ -110,6 +131,7 @@ args = {
     "study_name": study_name,
     "study_version": study_version,
     "dataset_version": dataset_version,
+    "test_split_size": test_size,
     "extend_covariates": extend_covariates,
     "np_seed": np_random_seed,
     "embedding_type": embedding_type,
@@ -118,30 +140,31 @@ args = {
     "add_loeuf": False,
     "add_alpha_mis": False,
     "add_gwas_hits": False,
-    "skip_con": True,
+    "skip_con": False,
     "normalize_embeddings": best_model_arch['normalize_embeddings'], #z-score normalize embeddings
     "embedding_dim": emb.shape[1], #dimension of embedding
     "n_genes": len(gene_list), #number of genes
     "n_samples": len(y_train_residual), #number of training samples
     "learning_rate": 0.001, #lr for Adam optimizer 
-    "epochs": 25, #Number of epochs to train
+    "epochs": 50, #Number of epochs to train
     "nonlinearity": "softplus", #choose from ['relu', 'silu', 'elu', 'gelu', 'softplus']
     "weight_decay": 0, #L2 penalty on trainable parameters
     "batch_size": 16*1024,
-    "n_hidden": best_model_arch['n_hidden'], #number of hidden layers in f(E)
+    "n_hidden": best_n_hidden,
     "hidden_dim": best_model_arch['hidden_dim'], #number of neurons in each hidden layer of f(E)
     "last_layer_bias": best_model_arch['last_layer_bias'], #initialization of bias term of last layer in f(E)
     "early_stopping": False, #If True, stops training if val r2 is lower than covariate r2 for >5 epochs
     "y_var_init": y_train_residual.var(), #initialization of variance of y
     "alpha_L1_fE": best_model_arch['alpha_L1_fE'], #L1 penalty weighting of f(E)
-    "base_var_init": 5e-5, #Initialization of additional bias term to variance (to be added to f(E))
+    "base_var_init": base_var_init, #Initialization of additional bias term to variance (to be added to f(E))
     "base_var_const": 0, #Constant variance value to be added to f(E)
 }
 
 g2p_cov_model = g2p_bayes_cov.G2P_Model(args["embedding_dim"], covariates_train.shape[1], n_hidden=args["n_hidden"], hiddem_dim=args["hidden_dim"], last_layer_bias=args["last_layer_bias"], nonlinearity=args["nonlinearity"], y_var_init=args["y_var_init"], base_var_init=args["base_var_init"], base_var_const=args["base_var_const"], n_genes=args["n_genes"], device=device).to(device)
 
 # Initialize weights and biases
-wandb.init(project="g2p_cov_hyperopt", name=f"{trait}_{embedding_type}", config=args, dir="/s/project/uk_biobank/processed/g2p/wandb/", settings=wandb.Settings(_service_wait=300))
+wandb.init(project="g2p_cov_cleansplit", name=f"{trait}_{embedding_type}", config=args, dir="/s/project/uk_biobank/processed/g2p/wandb/", settings=wandb.Settings(_service_wait=600))
+
 wandb.watch(g2p_cov_model)
 
 # print("Number of trainable parameters in model:", sum(p.numel() for p in g2p_cov_model.parameters() if p.requires_grad))
@@ -172,27 +195,33 @@ mean_betas_df = pd.DataFrame({"best_r2_mean_beta": g2p_cov_model.best_r2_trainva
                               "best_r2_epoch": g2p_cov_model.best_r2_epoch,
                               "best_r2_fE": g2p_cov_model.best_r2_fE.flatten(),
                               "best_loss_mean_beta": g2p_cov_model.best_loss_trainval_mean_beta, 
-                              "best_loss_var_beta": g2p_cov_model.best_loss_trainval_var_beta, 
-                              "best_loss_intercept": g2p_cov_model.best_loss_intercept, 
-                              "best_loss_base_var": g2p_cov_model.best_loss_base_var,
-                              "best_loss_last_layer_bias": g2p_cov_model.best_loss_last_layer_bias,
-                              "best_loss_epoch": g2p_cov_model.best_loss_epoch,
-                              "best_loss_fE": g2p_cov_model.best_loss_fE.flatten()}, index=gene_list)
+                              "best_loss_var_beta": g2p_cov_model.best_loss_trainval_var_beta}, index=gene_list)
+                              # "best_loss_intercept": g2p_cov_model.best_loss_intercept, 
+                              # "best_loss_base_var": g2p_cov_model.best_loss_base_var,
+                              # "best_loss_last_layer_bias": g2p_cov_model.best_loss_last_layer_bias,
+                              # "best_loss_epoch": g2p_cov_model.best_loss_epoch,
+                              # "best_loss_fE": g2p_cov_model.best_loss_fE.flatten()}, index=gene_list)
 
 mean_betas_df["std_err"] = np.sqrt(mean_betas_df["best_r2_var_beta"])
 mean_betas_df["mean_beta"] = mean_betas_df["best_r2_mean_beta"]
-
-mean_betas_df["neglog_pval"] = -np.minimum(np.log(2) + scipy.stats.norm.logcdf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]), np.log(2) + scipy.stats.norm.logsf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]))
-mean_betas_df["pd"] = np.maximum(scipy.stats.norm.cdf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]), scipy.stats.norm.sf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]))
-mean_betas_df["significant"] = mean_betas_df["pd"] > 0.999
 mean_betas_df["trait"] = trait
+mean_betas_df["pd"] = np.maximum(scipy.stats.norm.cdf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]), scipy.stats.norm.sf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]))
+# mean_betas_df["neglog_pval"] =  -np.minimum(np.log(2) + scipy.stats.norm.logcdf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]), np.log(2) + scipy.stats.norm.logsf(0, mean_betas_df["mean_beta"], mean_betas_df["std_err"]))
+mean_betas_df["neglog_pval"] = -np.log10(1 - mean_betas_df["pd"])
+
+mean_betas_df["significant"] = mean_betas_df["pd"] > 0.999
 mean_betas_df["base_var_const"] = args["base_var_const"]
 mean_betas_df["version"] = study_version.rstrip(',')
 mean_betas_df = mean_betas_df.reset_index().rename(columns={"index": "gene_id"})
+
+# Merge with gene names
+gene_names = pd.read_csv('/s/project/geno2pheno/data/hgnc2ensg.tsv', sep='\t')[['Ensembl gene ID', 'Approved symbol']].drop_duplicates().rename(columns={'Ensembl gene ID':'gene_id', 'Approved symbol':'gene_name'})
+mean_betas_df = mean_betas_df.merge(gene_names, on='gene_id')
+
 mean_betas_df.to_parquet(f"{output_dir}/{trait}_mean_betas.pq")   # Write to file
 
 # Log the model predictions on the test data
-bayes_pred_df = pd.DataFrame({f"{trait}_measurement": trait_measurement_test, 
+bayes_pred_df = pd.DataFrame({"trait_measurement": trait_measurement_test, 
                               "common_residual": y_test_residual,
                               "best_r2_pred": (gt_test @ g2p_cov_model.best_r2_trainval_mean_beta) + (covariates_test@g2p_cov_model.best_r2_gamma) + g2p_cov_model.best_r2_intercept, 
                               "best_loss_pred": (gt_test @ g2p_cov_model.best_loss_trainval_mean_beta) + (covariates_test@g2p_cov_model.best_loss_gamma) + g2p_cov_model.best_loss_intercept}, index=id_test) 

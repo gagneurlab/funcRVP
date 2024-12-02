@@ -9,7 +9,7 @@ import os
 
 version = "filteredv3"
 genotype = "deepRVAT"
-ukb_version = '300'
+# ukb_version = '300'
 
 sign_genes = False
 only_test = False
@@ -56,7 +56,8 @@ pred_df_list = []
 for i, trait in enumerate(traits):
     phenocode = genebass_phenocode_dict[trait]
     
-    assoc_df = pd.read_parquet(f"/s/project/uk_biobank/processed/g2p/modelling/ols_{genotype}/{version}_ols_{genotype}_cov{'_shuffledpheno' if shuffled_phenotype else ''}{'_test' if only_test else ''}{f'_{ukb_version}' if ukb_version else ''}_full_{trait}.pq")
+    # assoc_df = pd.read_parquet(f"/s/project/uk_biobank/processed/g2p/modelling/ols_{genotype}/{version}_ols_{genotype}_cov{'_shuffledpheno' if shuffled_phenotype else ''}{'_test' if only_test else ''}{f'_{ukb_version}' if ukb_version else ''}_full_{trait}.pq")
+    assoc_df = pd.read_parquet(f"/s/project/uk_biobank/processed/g2p/modelling/ols_{genotype}/{version}_at_{genotype}{'_cov' if covariates else ''}{'_shuffledpheno' if shuffled_phenotype else ''}{'_test' if only_test else ''}{f'_{ukb_version}' if ukb_version else ''}_CLEANsplit_{trait}.pq")
     if sum(assoc_df["neglog_pval"].isna())>0:
         print("NaN pvalues")
     
@@ -74,8 +75,8 @@ for i, trait in enumerate(traits):
     for sign_genes in [True, False]:
         print(trait, f"{i+1}/{len(traits)}")
 
-        output_dir = f"/s/project/uk_biobank/processed/g2p/modelling/LM_significant_genes/{genotype}"
-        outfile_pred = f"{output_dir}/{trait}_LM{'_sign_genes' if sign_genes else ''}_{version}{'_shuffledpheno' if shuffled_phenotype else ''}{'_test' if only_test else ''}{f'_{ukb_version}' if ukb_version else ''}.pq"
+        # output_dir = f"/s/project/uk_biobank/processed/g2p/modelling/LM_significant_genes/{genotype}"
+        # outfile_pred = f"{output_dir}/{trait}_LM{'_sign_genes' if sign_genes else ''}_{version}{'_shuffledpheno' if shuffled_phenotype else ''}{'_test' if only_test else ''}{f'_{ukb_version}' if ukb_version else ''}_CLEANsplit.pq"
         
         # if os.path.isfile(outfile_pred):
         #     continue
@@ -92,7 +93,7 @@ for i, trait in enumerate(traits):
         # print("test score", lm.score(x_test, trait_measurement_test))
         print("test score trait_measurement", r2_score(trait_measurement_test , lm.predict(x_test)))
 
-        pred_df_list.append(pd.DataFrame({f"{trait}_measurement": trait_measurement_test, 
+        pred_df_list.append(pd.DataFrame({"measurement": trait_measurement_test, 
                                           "common_residual": resid_test, 
                                           "lm_pred": lm.predict(x_test), 
                                           "trait": trait, 
@@ -123,5 +124,5 @@ ols_df["model"] = ols_df["model"] + "_cov"
 # for study_version in study_versions:
 #     study_version = study_version.rstrip(',')
 
-ols_df.reset_index(drop=True).to_parquet(f"/s/project/geno2pheno/predictions/bayesian/ols_{version}_{genotype}{f'_{ukb_version}' if ukb_version else ''}_genes_extended.pq")
-lm_sign_genes_df.reset_index(drop=True).to_parquet(f"/s/project/geno2pheno/predictions/bayesian/lm_{version}_{genotype}{f'_{ukb_version}' if ukb_version else ''}_predictions_extended.pq")
+ols_df.reset_index(drop=True).to_parquet(f"/s/project/geno2pheno/predictions/bayesian/at_{version}_{genotype}{f'_{ukb_version}' if ukb_version else ''}_genes_CLEANsplit.pq")
+lm_sign_genes_df.reset_index(drop=True).to_parquet(f"/s/project/geno2pheno/predictions/bayesian/lm_{version}_{genotype}{f'_{ukb_version}' if ukb_version else ''}_predictions_CLEANsplit.pq")
