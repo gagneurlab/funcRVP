@@ -96,7 +96,7 @@ df[, func_signif := ifelse(is.na(func_signif), FALSE, func_signif)]
 
 # Sign precision plot
 sp_df <- df[model==paste0("omics_pops_bayesian_v1NEWsplit_", genotype)][order(rank)]
-sp_df[, pd := 1-0.5*exp(-neglog_pval)]
+# sp_df[, pd := 1-0.5*exp(-neglog_pval)]
 # sp_df[, pd := 1-10^(-neglog_pval)]
 sp_df[, pd_bin := qcut(pd, breaks=c(0.5, 0.75, 0.9, 0.95, 0.99, 0.999, 1))]
 
