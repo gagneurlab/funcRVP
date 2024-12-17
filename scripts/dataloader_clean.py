@@ -19,6 +19,23 @@ EMBEDDINGS = {
     "frogs": "/s/project/geno2pheno/data/embeddings/frogs_archs4_d256.tsv"
 }
 
+genotype_path_dict = {
+    'plof': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_vep_plof.parquet",
+    'anti_plof': "/s/project/uk_biobank/processed/derived_datasets/temp_files/ukbb_wes_500k_plof_mask_301124.parquet",
+    'deeprvat': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_final_090924_medianshifted.parquet",
+    'deeprvat_pub': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_final_090924.parquet",
+    'deepRVAT_allmodels': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_notclean_all_30_models_151024.parquet",
+    'deeprvat_plof': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_plof_031224_medianshifted.parquet",
+    'deeprvat_pub_plof': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_plof_301124.parquet",
+    'deeprvat_pub_no_plof': "/s/project/uk_biobank/processed/derived_datasets/temp_files/ukbb_wes_500k_DeepRVAT_no_plof_301124.parquet",
+    'alphamissense': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_alphamissense_300924.parquet",
+    'am_plof': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_sum_alphamissense_plof_151024.parquet",
+    'primateai': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_primateai_011024.parquet",
+    'cadd': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_cadd_011024.parquet",
+    'max_plof_am_deeprvat': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_max_plof_am_deeprvat_061224.parquet",
+    'max_plof_am_deeprvat_medianshifted': "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_max_plof_am_deeprvat_061224_medianshifted.parquet",
+}
+
 def trait_INT_zscore(trait):
     pheno_dt = pd.read_parquet(f"/s/project/uk_biobank/processed/decoded_phenotypes/{trait}/data.parquet")
     trait_mean = pheno_dt[f'{trait}_raw'].mean()
@@ -35,27 +52,12 @@ def trait_INT_zscore(trait):
     return pheno_dt[['individual', 'trait', 'raw', 'zscore', 'INT', 'new_INT']]
 
 
-def load_data(trait, embedding_type=None, use_prs=True, normalize_covariates=True, version='filteredv3', genotype="deepRVAT", test_split_size=0.4, val_split_size=0.1, split_seed=0, small_gene_list=None):
+def load_data(trait, embedding_type=None, use_prs=True, normalize_covariates=True, version='filteredv3', genotype="deeprvat", test_split_size=0.4, val_split_size=0.1, split_seed=0, small_gene_list=None):
 
-    # Define genotype paths
-    if genotype=="pLoF":
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_vep_plof.parquet"
-    elif genotype=="deepRVAT":
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_final_090924_medianshifted.parquet"
-    elif genotype=="deepRVAT_pub":
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_final_090924.parquet"
-    elif genotype=="deepRVAT_allmodels":
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_DeepRVAT_notclean_all_30_models_151024.parquet"
-    elif genotype=='alphamissense':
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_alphamissense_300924.parquet"
-    elif genotype=='am_plof':
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_sum_alphamissense_plof_151024.parquet"
-    elif genotype=='primateai':
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_primateai_011024.parquet"
-    elif genotype=='cadd':
-        genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_cadd_011024.parquet"
+    if genotype in genotype_path_dict.keys():
+        genotype_path = genotype_path_dict[genotype]
     else:
-        print("defaulting to pLoF genotype in dataloader")
+        print("defaulting to pLOF genotype in dataloader")
         genotype_path = "/s/project/uk_biobank/processed/derived_datasets/ukbb_wes_500k_vep_plof.parquet"
 
     # Read GIS matrix
