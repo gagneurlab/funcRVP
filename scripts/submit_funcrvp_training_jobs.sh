@@ -1,31 +1,16 @@
 #!/bin/bash
 
+test_size='0.25'
+genotype='deeprvat'
+emb_state='--shuffled_emb'
+# version='v1NEWsplit'
+
 while read trait
 do
-    sbatch -p urgent submit_arch_job.sh $trait pops deepRVAT v112arch
-    sbatch -p urgent submit_arch_job.sh $trait omics deepRVAT v113arch
-    sbatch -p urgent submit_arch_job.sh $trait omics_pops_exp deepRVAT v114arch
+    sbatch submit_funcrvp_training.sh $trait pops_exp $genotype $test_size v1NEWsplit
+    # sbatch -p urgent submit_funcrvp_training.sh $trait omics_pops_exp $genotype $test_size v1NEWsplit
+    # sbatch -p urgent submit_funcrvp_training.sh $trait string $genotype $test_size v1NEWsplit
+    # sbatch -p urgent submit_funcrvp_training.sh $trait string_exp $genotype $test_size v1NEWsplit
+    # sbatch -p urgent submit_funcrvp_training.sh $trait omics_pops $genotype $test_size v1NEWsplit_randEmb $emb_state '0'
+    # sbatch submit_funcrvp_training.sh $trait enformer_small deeprvat $test_size v1NEWsplit
 done < phenotype_list_41.txt
-
-
-
-
-
-# Define a embedding list and version number
-# emb_list=("pops")
-# version="v112arch"
-
-
-# while read trait
-# do
-#     for emb in "${emb_list[@]}"
-#     do
-#         for genotype in deepRVAT 
-#         do
-#             sbatch submit_arch_job.sh $trait $emb $genotype $version
-#             # sbatch submit_arch_job_shuffledpheno.sh $trait $emb $genotype $version 1234
-#             # sbatch submit_arch_job_shuffledpheno.sh $trait $emb $genotype $version 111
-#             # sbatch submit_arch_job_shuffledpheno.sh $trait $emb $genotype $version 225
-#         done
-#     done
-# done < phenotype_list_41.txt
