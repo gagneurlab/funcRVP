@@ -8,7 +8,3 @@
 # SBATCH --exclude=ouga12
 
 python funcrvp_hyperopt_repeats.py $1 $2 $3 $4 $5
-
-# sbatch -p urgent submit_hyperopt_job.sh LDL_direct omics_pops deepRVAT NEWsplit 0.25
-# sbatch -p urgent submit_hyperopt_job.sh HDL_cholesterol omics_pops deepRVAT big_train bigsplit_trial
-# sbatch submit_hyperopt_job.sh Reticulocyte_count esm2 deepRVAT v2cleansplitHO
