@@ -6,12 +6,12 @@ To try out the FuncRVP model on simulated example data run the [python notebook 
 
 This repo contains the scripts to train our model and benchmark the results. The [`scripts`](https://github.com/gagneurlab/funcRVP/tree/main/scripts) directory contains the codes for the running the model, hyperparameter optimization and consolidating results. The [`plotting_codes`](https://github.com/gagneurlab/funcRVP/tree/main/plotting_codes) directory contains R scripts used to create figures in our manuscript.
 
-# Requirements
+## Requirements
 -------------------------- 
 - Linux, Python (tested with v3.9)
 - NVIDIA GPU (tested on A40) for training on biobank scale data
 
-# Training
+## Training time
 --------------------------  
 FuncRVP requires a samples x genes matrix as input. Training time for FuncRVP on ~250,000 samples x ~18,000 genes from the UK biobank takes about 30 minutes
 
