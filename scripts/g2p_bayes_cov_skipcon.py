@@ -9,19 +9,12 @@ import scipy.sparse as sp
 import wandb
 import time
 import warnings
-import sys
-import yaml
-import copy
 import statsmodels.formula.api as smf
 import sys
-import optuna
-import dataloader
 
 from sklearn.metrics import r2_score
 from sklearn.model_selection import train_test_split
-from sklearn.linear_model import Lasso, LassoCV, LinearRegression
-from sklearn.metrics import PrecisionRecallDisplay, precision_recall_curve, average_precision_score
-from sklearn.decomposition import PCA
+from sklearn.linear_model import LinearRegression
 
 # Ignoring sparse warning
 warnings.filterwarnings("ignore")
@@ -201,8 +194,7 @@ class G2P_Model(nn.Module):
     def forward(self, G, emb, C, device=None):
         gE, var, b, gamma, base_var = self.var_pred_model(emb)
         cov = (G * gE.squeeze(1)) @ G.transpose(1,0) + torch.diag(torch.exp(var).expand(G.shape[0]))
-        # print(C.shape, gamma.shape)
-        pred = MultivariateNormal(loc = (C @ gamma) + b.expand(G.shape[0]), scale_tril = torch.linalg.cholesky(cov)) #torch.linalg???
+        pred = MultivariateNormal(loc = (C @ gamma) + b.expand(G.shape[0]), scale_tril = torch.linalg.cholesky(cov)) 
         return pred
     
     # Returns variance of prior
@@ -240,27 +232,11 @@ class G2P_Model(nn.Module):
             n_genes = G.shape[1]
             gE, var, b, gamma, base_var = self.var_pred_model(emb)
             sigma_inv = torch.diag((1/gE).squeeze()) + (1/torch.exp(var))[0] * (torch.transpose(G, 0, 1) @ G)
-            
-            # sigma = torch.linalg.inv(sigma_inv)
-            # mean_beta = (sigma @ ((1/torch.exp(var))[0] * torch.transpose(G, 0, 1) @ (y-((C @ gamma)+b)))).detach().cpu().numpy()
-        # self.mean_beta = mean_beta
-        # self.var_beta = np.diag(sigma.detach().cpu().numpy())
-
-            # sigma = torch.linalg.inv(sigma_inv).detach().cpu().numpy()
             sigma = torch.linalg.inv(sigma_inv.detach().cpu()).numpy()
             mean_beta = (sigma @ ((1/torch.exp(var))[0].detach().cpu().numpy() * torch.transpose(G, 0, 1).detach().cpu().numpy() @ (y.detach().cpu().numpy() - ((C.detach().cpu().numpy() @ gamma.detach().cpu().numpy()) + b.detach().cpu().numpy()))))
         self.mean_beta = mean_beta
         self.var_beta = np.diag(sigma)
         return mean_beta
-    
-    # Compute and return mean and variance of posterior (Redundant - above function)
-    # def recompute_posterior(self, G, gE, var, b, gamma, C, y, device=None):
-    #     with torch.no_grad():
-    #         sigma_inv = torch.diag((1/gE).squeeze()) + (1/torch.exp(var))[0] * (torch.transpose(G, 0, 1) @ G)
-    #         sigma = torch.linalg.inv(sigma_inv)
-    #         mean_beta = (sigma @ ((1/torch.exp(var))[0] * torch.transpose(G, 0, 1) @ (y-((C @ gamma)+b)))).detach().cpu().numpy()
-    #         var_beta = np.diag(sigma.detach().cpu().numpy())
-    #     return mean_beta, var_beta
 
     # Recompute posterior on the CPU
     def recompute_posterior(self, G, gE, var, b, gamma, C, y, device=None):
@@ -497,11 +473,6 @@ class G2P_Model(nn.Module):
                 if early_stopper.early_stop(val_r2):
                     print("Early stop")
                     break
-            
-            #if (trial is not None) and (trial.should_prune()):
-            #    if logging:
-            #        wandb.finish()
-            #    raise optuna.TrialPruned()
         
         # Compute posterior using train and validation data to evaluate model on test set.
         if n_val_samples:
