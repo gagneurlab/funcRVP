@@ -11,5 +11,5 @@ This repo contains the scripts to train our model and benchmark the results. The
 - Linux, Python (tested with v3.9)
 - NVIDIA GPU (tested on A40) for training on biobank scale data
 
-FuncRVP requires a samples x genes matrix as input. Training FuncRVP for 50 epochs on ~250,000 samples x ~18,000 genes from the UK biobank takes about 30 minutes on a NVIDIA A40 GPU for a single trait. 
+Training FuncRVP for 50 epochs on ~250,000 samples x ~18,000 genes from the UK biobank takes about 30 minutes on a NVIDIA A40 GPU for a single trait. 
 
