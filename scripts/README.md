@@ -11,9 +11,9 @@ This folder contains scripts to train the FuncRVP model.
 ## Supplementary scripts
 --------------------
 
-- `dataloader_clean.py` is the file containing the dataloader class. This is used by all FuncRVP and burden test training scripts. The script requires a gene burden score table in the format: (samples x genes), and a covariate table in the format: (samples x covariates).
+- `dataloader_clean.py` is the file containing the dataloader class. This class converts precomputed gene burdens, covariates, and trait measurements into the format required by FuncRVP. This is used by all FuncRVP and burden test training scripts. The script requires a gene burden score table in the format: (samples x genes), and a covariate table in the format: (samples x covariates).
   
-- `g2b_bayes_cov_skipcon.py` is the file containing the FuncRVP model class. It is used by all FuncRVP training scripts.
+- `g2b_bayes_cov_skipcon.py` is the file containing the FuncRVP model class. It is used by all FuncRVP training scripts. The script requires a gene burden score table in the format: (samples x genes), and a covariate table in the format: (samples x covariates).
 
 - `train_ols.py` performs a burden test across all genes for a given trait.
   
