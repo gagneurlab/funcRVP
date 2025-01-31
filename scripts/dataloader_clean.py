@@ -69,14 +69,18 @@ def load_data(trait, embedding_type=None, use_prs=True, normalize_covariates=Tru
     gene_list = sorted(list(GT_df.columns))
 
     # Read embedding vectors
-    gene_embeddings_df = pd.read_csv("/s/project/geno2pheno/data/embeddings/pops_mat_pca256_omics.tsv", sep="\t").rename(columns={"gene_id": "gene"}).sort_values("gene")
-    gene_list = sorted(set(gene_embeddings_df.sort_values("gene")["gene"]).intersection(set(gene_list)))
-    gene_embeddings_df = gene_embeddings_df.set_index("gene").loc[gene_list].reset_index()
-    
-    gene_embeddings_df = gene_embeddings_df.set_index("gene")
-    gene_embeddings_df = gene_embeddings_df[gene_embeddings_df.index.isin(gene_list)]
-    gene_embeddings_df = gene_embeddings_df[~gene_embeddings_df.index.duplicated(keep='first')]
-    emb = gene_embeddings_df.values
+    if embedding_type:
+        gene_embeddings_df = pd.read_csv(EMBEDDINGS[embedding_type], sep="\t").rename(columns={"gene_id": "gene"}).sort_values("gene")
+        gene_list = sorted(set(gene_embeddings_df.sort_values("gene")["gene"]).intersection(set(gene_list)))
+        gene_embeddings_df = gene_embeddings_df.set_index("gene").loc[gene_list].reset_index()
+        
+        gene_embeddings_df = gene_embeddings_df.set_index("gene")
+        gene_embeddings_df = gene_embeddings_df[gene_embeddings_df.index.isin(gene_list)]
+        gene_embeddings_df = gene_embeddings_df[~gene_embeddings_df.index.duplicated(keep='first')]
+        emb = gene_embeddings_df.values
+
+    else:
+        emb = None
 
     # Filter GIS to include only thos genes whose embedding is availabe
     GT_df = GT_df[['individual'] + gene_list]
