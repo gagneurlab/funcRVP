@@ -18,3 +18,6 @@ for trait in "${output_array[@]}"; do
     echo "Trait: $trait"
     sbatch ./bash/run_trainer.sh "$trait" "$yaml_file"
 done
+
+# Consolidate results
+sbatch ./bash/consolidate_results.sh "$yaml_file"

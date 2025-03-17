@@ -2,14 +2,22 @@ import logging
 import sys
 import os
 import yaml
+import click
+from tqdm import tqdm
+from pathlib import Path
 import numpy as np
-import scipy.stats
 import pandas as pd
+import scipy.stats
 from sklearn.preprocessing import quantile_transform
+import optuna
 
-import optuna  # Import optuna in utils.py
-
-logger = logging.getLogger(__name__)  # Logger for utils module
+# --- Logging Setup ---
+logging.basicConfig(
+    format="[%(asctime)s] %(levelname)s:%(name)s: %(message)s",
+    level=logging.INFO,
+    stream=sys.stdout,
+)
+logger = logging.getLogger(__name__)
 
 
 def trait_INT_zscore(trait, phenotype_data_dir):
@@ -79,22 +87,6 @@ def get_best_arch(
     return best_trial_params
 
 
-def load_phenocode_dict(prs_score_mapping_path):
-    if not os.path.exists(prs_score_mapping_path):
-        logger.error(f"PRS score mapping file not found: {prs_score_mapping_path}")
-        sys.exit(1)
-    logger.info(f"Loading phenocode dictionary from: {prs_score_mapping_path}")
-    genebass_phenocode_dict = (
-        pd.read_csv(prs_score_mapping_path)[["phenotype", "genebass_phenocode"]]
-        .set_index("genebass_phenocode")["phenotype"]
-        .to_dict()
-    )
-    genebass_phenocode_dict = {v: k for k, v in genebass_phenocode_dict.items()}
-    genebass_phenocode_dict["LDL_direct"] = "30780"
-    genebass_phenocode_dict["Albumin"] = "30600"
-    return genebass_phenocode_dict
-
-
 def save_model_outputs(
     g2p_cov_model,
     trait_measurement_test,
@@ -158,7 +150,7 @@ def save_model_outputs(
     betas_df["significant"] = betas_df["pd"] > config.get("pd_signif_threshold", 0.999)
     betas_df = betas_df.reset_index().rename(columns={"index": "gene_id"})
 
-    gene_names_path = config["paths"]["hgnc_gene_names"]
+    gene_names_path = config["hgnc_gene_names"]
     if not os.path.exists(gene_names_path):
         logger.error(f"Gene names file not found at {gene_names_path}")
         logger.error(f"Skipping gene name merge")
@@ -174,6 +166,7 @@ def save_model_outputs(
             )
         )
         betas_df = betas_df.merge(gene_names, on="gene_id")
+
     betas_df["embedding"] = embedding
     betas_df["genotype"] = genotype
     betas_df["dataset_version"] = dataset_version
@@ -210,3 +203,95 @@ def save_model_outputs(
     phenopred_df.to_parquet(output_bayes_pred_path)
 
     logger.info("All model outputs saved.")
+
+
+@click.group()
+def cli():
+    pass
+
+@cli.command()
+@click.option(
+    "--config-path",
+    type=click.Path(exists=True),
+    required=True,
+    help="Config file with all details",
+)
+def read_results(
+    config_path: Path,
+):
+    if not os.path.exists(config_path):
+        logger.warning(
+            f"Run configuration file not found: {config_path}. Exiting..."
+        )
+        sys.exit(1)
+    else:
+        with open(config_path, "r") as f:
+            config = yaml.safe_load(f)
+
+    TRAITS = config.get("traits", None)
+    experiment_name = config.get("experiment_name", "default")
+
+    dataloader_params = config.get("dataloader_params", None)
+    dataset_version = dataloader_params.get("dataset_version", "filteredv3")
+    embedding = dataloader_params.get("embedding", None)
+    genotype = dataloader_params.get("genotype", "plof")
+
+    output_dir_base = config.get("output_dir_base", None)
+    if not output_dir_base:
+        logger.error("Output directory not provided in config file.")
+        sys.exit(1)
+
+    # Define output directory
+    output_dir_name = f"{experiment_name}_{dataset_version}/{genotype}_{embedding}"
+    output_dir = os.path.join(config["output_dir_base"], output_dir_name)
+
+    genes_dt_list = []
+    pheno_dt_list = []
+    skip_list = []
+
+    logger.info(f"Starting to consolidate results for all traits...")
+    for trait in tqdm(TRAITS):
+        try:
+            # TODO: Add phenocode mapping
+            # phenocode = genebass_phenocode_dict[trait]
+
+            betas_df = pd.read_parquet(
+                f"{output_dir}/{trait}_betas.pq"
+            )  # .reset_index()
+            # betas_df["phenocode"] = str(phenocode)
+            genes_dt_list.append(betas_df)
+
+            phenopred_df = pd.read_parquet(
+                f"{output_dir}/{trait}_phenopred.pq"
+            )  # .reset_index()
+            # phenopred_df["phenocode"] = str(phenocode)
+            pheno_dt_list.append(phenopred_df)
+        except:
+            skip_list.append(trait)
+            continue
+
+    logger.info(f"Skipped the traits: {skip_list}")
+
+    genes_dt = pd.concat(genes_dt_list)
+    pheno_dt = pd.concat(pheno_dt_list)
+
+    logger.info(f"Writing consolidated results files to: {output_dir}")
+    genes_dt.to_parquet(f"{output_dir}/all_trait_betas.pq", index=False)
+    pheno_dt.to_parquet(f"{output_dir}/all_trait_phenopred.pq", index=False)
+    logger.info(f"Consolidated results saved successfully.")
+
+
+def load_phenocode_dict(prs_score_mapping_path):
+    if not os.path.exists(prs_score_mapping_path):
+        logger.error(f"PRS score mapping file not found: {prs_score_mapping_path}")
+        sys.exit(1)
+    logger.info(f"Loading phenocode dictionary from: {prs_score_mapping_path}")
+    genebass_phenocode_dict = (
+        pd.read_csv(prs_score_mapping_path)[["phenotype", "genebass_phenocode"]]
+        .set_index("genebass_phenocode")["phenotype"]
+        .to_dict()
+    )
+    genebass_phenocode_dict = {v: k for k, v in genebass_phenocode_dict.items()}
+    genebass_phenocode_dict["LDL_direct"] = "30780"
+    genebass_phenocode_dict["Albumin"] = "30600"
+    return genebass_phenocode_dict

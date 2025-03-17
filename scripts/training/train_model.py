@@ -1,21 +1,18 @@
-import joblib
 import os
 import sys
 import yaml
 import logging
-# import datetime
+
 import click
 from typing import Optional
 
 import pandas as pd
 import numpy as np
-# import scipy
+
 from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression, ElasticNetCV
 import matplotlib.pyplot as plt
-
 import torch, gc
-import plotnine as pn
 
 from pathlib import Path
 import wandb
@@ -289,8 +286,7 @@ def trainer(
 
     # --- Create Experiment Directory ---
     output_dir_name = f"{config.get('experiment_name', 'default')}_{dataloader_params.get('dataset_version', 'filteredv3')}"
-    output_dir = os.path.join(config['paths']['output_dir_base'], output_dir_name)
-
+    output_dir = os.path.join(config['output_dir_base'], output_dir_name)
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Experiment directory created: {output_dir}")
 
