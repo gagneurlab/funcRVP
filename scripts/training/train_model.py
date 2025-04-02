@@ -89,18 +89,20 @@ def trainer_(
             device=device,
         ).to(device)
 
+        g2p_cov_model = torch.compile(g2p_cov_model) # Compile the model for better performance
+
         # Initialize weights and biases
-        logger.info(f"Writing wandb logs to {training_params['wandb_dir']}")
+        if training_params.get('wandb_logging', False):
+            logger.info(f"Writing wandb logs to {training_params['wandb_dir']}")
+            wandb.init(
+                project=training_params['wandb_project_name'],
+                # name=training_params['wandb_project_name'],
+                config=training_params,
+                dir=training_params['wandb_dir'],
+                settings=wandb.Settings(_service_wait=600),
+            )
 
-        wandb.init(
-            project=training_params['wandb_project_name'],
-            # name=training_params['wandb_project_name'],
-            config=training_params,
-            dir=training_params['wandb_dir'],
-            settings=wandb.Settings(_service_wait=600),
-        )
-
-        wandb.watch(g2p_cov_model)
+            wandb.watch(g2p_cov_model)
 
         logger.info("Starting model training...")
         g2p_cov_model.fit_model(
@@ -112,12 +114,12 @@ def trainer_(
             G_val=gt_val,
             C_val=covariates_val,
             y_val=trait_measurement_val,
-            logging=True,
+            logging=training_params['wandb_logging'],
             device=device,
         )
         logger.info("Model training finished.")
-
-        wandb.finish()
+        if training_params['wandb_logging']:
+            wandb.finish()
 
     return g2p_cov_model
 
@@ -144,8 +146,10 @@ def trainer(
 
     # --- Load Run Parameters from Config ---
     dataloader_params = config.get('dataloader_params', None)
-    embedding = dataloader_params.get('embedding', None)
-    genotype = dataloader_params.get('genotype', 'plof')
+    if dataloader_params.get('embedding_path', None):
+        embedding = dataloader_params.get('embedding_path', None).split("/")[-1].split(".")[0]
+    if dataloader_params.get('genotype_path', None):
+        genotype = dataloader_params.get('genotype_path', None).split("/")[-1].split(".")[0]
 
     (
         (gt_train, gt_val, gt_test),
@@ -157,18 +161,22 @@ def trainer(
         (covariates_train, covariates_val, covariates_test),
     ) = dataloader.load_data(
         trait,
-        embedding_type = embedding,
-        genotype = genotype,
+        embedding_path = dataloader_params.get('embedding_path', '-1'),
+        genotype_path = dataloader_params.get('genotype_path', '-1'),
+        phenotype_dir= dataloader_params.get('phenotype_dir', '-1'),
+        covariates_path = dataloader_params.get('covariates_path', '-1'),
+        prs_path = dataloader_params.get('prs_path', '-1'),
+        train_individuals_path = dataloader_params.get('train_individuals_path', '-1'),
         test_split_size = dataloader_params.get('test_split_size', 0.25),
         val_split_size = dataloader_params.get('val_split_size', 0.1),
         split_seed = dataloader_params.get('split_seed', 0),
-        gene_subset = dataloader_params.get('gene_subset', None),
         use_prs = dataloader_params.get('use_prs', True),
         normalize_covariates = dataloader_params.get('normalize_covariates', True),
         normalize_embedding=dataloader_params.get('normalize_embedding', False),
         shuffled_phenotype = dataloader_params.get('shuffled_phenotype', False),
         shuffled_embedding = dataloader_params.get('shuffled_embedding', False),
         random_embedding = dataloader_params.get('random_embedding', False),
+        gene_subset = dataloader_params.get('gene_subset', None),
         dataset_version = dataloader_params.get('dataset_version', "filteredv3"),
     )
 
@@ -290,11 +298,18 @@ def trainer(
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Experiment directory created: {output_dir}")
 
-    # Get prediciton on the test set
-    best_pred = (gt_test @ g2p_cov_model.best_posterior_mean_beta) + (covariates_test@g2p_cov_model.best_gamma) + g2p_cov_model.best_intercept
+    # --- Move model to cpu ---
+    g2p_cov_model = g2p_cov_model.to('cpu')
 
-    logger.info(f"--- Saving Model Outputs to {output_dir} ---")
-    utils.save_model_outputs(g2p_cov_model, trait_measurement_test, y_test_residual, best_pred, id_test, gene_list, trait, output_dir, config)
+    logger.info("Generating predictions on the test set...")
+    with torch.no_grad(): # Disable gradient calculations
+        best_model_test_pred = (gt_test @ g2p_cov_model.best_posterior_mean_beta) + (covariates_test@g2p_cov_model.best_gamma) + g2p_cov_model.best_intercept
+        
+        # Get prediciton on the test set
+        # best_model_test_pred = (gt_test @ g2p_cov_model.best_posterior_mean_beta.detach().cpu().to(torch.float32).numpy()) + (covariates_test@g2p_cov_model.best_gamma.detach().cpu().to(torch.float32).numpy()) + g2p_cov_model.best_intercept.detach().cpu().to(torch.float32).numpy()
+
+        logger.info(f"--- Saving Model Outputs to {output_dir} ---")
+        utils.save_model_outputs(g2p_cov_model, trait_measurement_test, y_test_residual, best_model_test_pred, id_test, gene_list, trait, output_dir, config)
 
 if __name__ == "__main__":
     cli()

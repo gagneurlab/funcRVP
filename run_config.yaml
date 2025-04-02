@@ -1,0 +1,84 @@
+experiment_name: fp_beta1
+output_dir_base: /s/project/geno2pheno/predictions/funcrvp_beta/
+hgnc_gene_names: /s/project/geno2pheno/data/hgnc2ensg.tsv
+
+dataloader_params:
+  embedding_path: /s/project/geno2pheno/data/embeddings/pops_mat_pca256_omics.tsv
+  genotype_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_wes_500k_DeepRVAT_final_090924_medianshifted.parquet
+  phenotype_dir: /s/project/uk_biobank/clean/decoded_phenotypes
+  use_prs: true
+  normalize_covariates: true
+  dataset_version: filteredv3
+  test_split_size: 0.25
+  val_split_size: 0.1
+  split_seed: 0
+  train_individuals_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_wes_200k_ensembl_loftee_plof_pivot.parquet
+  covariates_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_500k_covariates_filteredv3.parquet
+  prs_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_common_traits_and_covariates_with_split_and_residuals_500k_filteredv3.parquet
+  # gene_subset:
+  #   - ENSG00000130164
+  #   - ENSG00000169174
+
+training_params:
+  learning_rate: 0.001
+  epochs: 25
+  nonlinearity: softplus # choose from ['relu', 'silu', 'elu', 'gelu', 'softplus']
+  follow_metric: r2
+  weight_decay: 0
+  batch_size: 8196
+  early_stopping: False
+  wandb_logging: True
+  wandb_project_name: funcrvp_beta
+  wandb_dir: /s/project/geno2pheno/wandb/funcrvp/
+  old_optuna_journal_log: /s/project/geno2pheno/hyperopt/optuna/journal.log
+  old_model_version: v108cov_deepRVAT
+  old_model_embedding: omics_pops
+
+hpopt_params:
+  n_repeats: 1
+  n_trials: 100
+  objective_direction: maximize
+  hpopt_file: /s/project/geno2pheno/hyperopt/optuna/new_journal.log
+
+traits:
+  # - Albumin
+  - Alkaline_phosphatase
+  # - Apolipoprotein_A
+  # - Apolipoprotein_B
+  # - BodyMassIndex
+  # - Calcium
+  # - Cholesterol
+  # - Creatinine
+  # - Cystatin_C
+  # - Direct_bilirubin
+  # - Erythrocyte_count
+  # - Erythrocyte_distribution_width
+  # - Gamma_glutamyltransferase
+  # - Glucose
+  # - HDL_cholesterol
+  # - High_light_scatter_reticulocyte_count
+  # - High_light_scatter_reticulocyte_percentage
+  # - IGF1
+  - LDL_direct
+  # - Lymphocyte_percentage
+  # - Mean_corpuscular_haemoglobin
+  # - Mean_corpuscular_volume
+  # - Mean_reticulocyte_volume
+  # - Mean_sphered_cell_volume
+  # - Neutrophill_count
+  # - Phosphate
+  # - Platelet_count
+  # - Platelet_crit
+  # - Platelet_distribution_width
+  # - Reticulocyte_count
+  # - Reticulocyte_percentage
+  # - SHBG
+  # - Thrombocyte_volume
+  # - Total_bilirubin
+  # - Triglycerides
+  # - Urate
+  # - Urea
+  # - Vitamin_D
+  # - glycated_haemoglobin_hba1c
+  # - standing_height
+  # - systolic_blood_pressure

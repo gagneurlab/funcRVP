@@ -16,6 +16,7 @@ from sklearn.metrics import r2_score
 from sklearn.linear_model import LinearRegression
 
 
+
 # Ignoring sparse warning
 warnings.filterwarnings("ignore")
 torch.set_float32_matmul_precision("high")
@@ -29,7 +30,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 def tensor_to_numpy(tensor):
-    """Safely convert any tensor to numpy array regardless of dtype."""
+    """Safely convert any tensor to numpy array"""
     return tensor.detach().cpu().to(torch.float32).numpy()
 
 class EarlyStopper:
@@ -188,6 +189,7 @@ class VarPredModel(nn.Module):
             torch.exp(self.log_base_var),
         )
 
+
 # Class that fits the genotype to phenotype model
 class G2P_Model(nn.Module):
 
@@ -261,39 +263,47 @@ class G2P_Model(nn.Module):
         else:
             return (G @ self.posterior_beta) + (C @ self.gamma) + self.intercept
 
-    # TODO
-    # Recompute posterior on the CPU
-    def _get_posterior_params(self, G, C, y, gE, gamma, intercept, var):
-        with torch.no_grad():
-            # import ipdb; ipdb.set_trace()
-            sigma_inv = torch.diag((1 / gE).squeeze()) + (1 / torch.exp(var))[0] * (
-                torch.transpose(G, 0, 1) @ G
-            )
-            sigma = torch.linalg.inv(sigma_inv).to(torch.bfloat16)
 
-            mean_beta = sigma @ (
-                (1 / torch.exp(var))[0] * torch.transpose(G, 0, 1)
-                @ (y - ((C @ gamma) + intercept))
-            )
-            var_beta = torch.diag(sigma)
-        return mean_beta, var_beta
+    # Faster computation of posterior mean
+    def _get_posterior_mean_faster(self, G, C, y, GT_G, gE, gamma, intercept, var):
+        with torch.no_grad():
+            sigma_inv = torch.diag((1/gE).squeeze()) + (1/torch.exp(var))[0] * GT_G
+            x = (1/torch.exp(var))[0] * torch.matmul(torch.transpose(G, 0, 1), (y - ((C @ gamma) + intercept)))
+            mu_hat_unscaled = torch.linalg.solve(sigma_inv, x)
+            mean_beta = mu_hat_unscaled  
+        return mean_beta
+    
+    def _get_posterior_params(self, G, C, y, GT_G, gE, gamma, intercept, var, faster=True):
+        if faster:
+            return self._get_posterior_mean_faster(G, C, y, GT_G, gE, gamma, intercept, var), None
+        else:
+            with torch.no_grad():
+                sigma_inv = torch.diag((1 / gE).squeeze()) + (1 / torch.exp(var))[0] * GT_G
+                sigma = torch.linalg.inv(sigma_inv)
+
+                mean_beta = sigma @ (
+                    (1 / torch.exp(var))[0] * torch.transpose(G, 0, 1)
+                    @ (y - ((C @ gamma) + intercept))
+                )
+                var_beta = torch.diag(sigma)
+            return tensor_to_numpy(mean_beta), tensor_to_numpy(var_beta)
 
     def _update_best_params(self):
         """Updates best params if current validation metric is better."""
         # TODO, call recompute posterior to get mean_beta
-        self.best_mean_beta = self.mean_beta
-        self.best_var_beta = self.var_beta
-        self.best_var = self.var
-        self.best_gamma = self.gamma
-        self.best_intercept = self.intercept
-        self.best_base_var = self.base_var
-        self.best_last_layer_bias = (
-            self.var_pred_model.layers[-2].constant.item()
+        self.best_mean_beta = tensor_to_numpy(self.posterior_beta)
+        #self.best_var_beta = self.posterior_beta
+        self.best_var = tensor_to_numpy(self.var)
+        self.best_gamma = tensor_to_numpy(self.gamma)
+        self.best_intercept = tensor_to_numpy(self.intercept)
+        self.best_base_var = tensor_to_numpy(self.base_var)
+        self.best_last_layer_bias = tensor_to_numpy(
+            self.var_pred_model.layers[-2].constant
             if hasattr(self.var_pred_model.layers[-2], "constant")
-            else self.var_pred_model.layers[-2].bias.item()
+            else self.var_pred_model.layers[-2].bias
         )
         self.best_epoch = self.total_epochs_trained
-        self.best_prior_var = self.prior_var
+        self.best_prior_var = tensor_to_numpy(self.prior_var)
 
     def _log_epoch_wandb(self, epoch, train_r2, val_r2, common_r2, n_val_samples):
         """Logs epoch metrics to WandB."""
@@ -303,7 +313,7 @@ class G2P_Model(nn.Module):
                 "epoch_train_loss": self.train_loss_list[-1],
                 "epoch_val_loss": (self.val_loss_list[-1] if n_val_samples else None),
                 "epoch_posterior_beta": tensor_to_numpy(self.posterior_beta),
-                "epoch_posterior_var_beta": np.squeeze(tensor_to_numpy(self.posterior_var_beta)),
+               # "epoch_posterior_var_beta": np.squeeze(tensor_to_numpy(self.posterior_var_beta)),
                 "epoch_prior_var": tensor_to_numpy(self.prior_var),
                 "epoch_gamma": tensor_to_numpy(self.gamma),
                 "epoch_intercept": tensor_to_numpy(self.intercept),
@@ -359,21 +369,21 @@ class G2P_Model(nn.Module):
             logger.info(f"Covariates r2 on val: {common_r2}")
 
         # Initialize covariate effects in FuncRVP = effect of covariates from the LM
-        self.var_pred_model.gamma.data = torch.Tensor(lm.coef_).to(torch.bfloat16).to(device)
+        self.var_pred_model.gamma.data = torch.Tensor(lm.coef_).to(device)
 
         # Initialize intercept in FuncRVP = effect of covariates from the LM
-        self.var_pred_model.intercept.data = torch.Tensor([lm.intercept_]).to(torch.bfloat16).to(device)
+        self.var_pred_model.intercept.data = torch.Tensor([lm.intercept_]).to(device)
 
         logger.info("Uploading data to GPU")
-        emb_torch = torch.Tensor(emb).to(torch.bfloat16).to(device)
+        emb_torch = torch.Tensor(emb).to(device)
 
         #TODO seems redundant
-        G = torch.Tensor(G).to(torch.bfloat16)
-        C = torch.Tensor(C).to(torch.bfloat16)
-        y = torch.Tensor(y).to(torch.bfloat16)
-        G_val = torch.Tensor(G_val).to(torch.bfloat16)
-        C_val = torch.Tensor(C_val).to(torch.bfloat16)
-        y_val = torch.Tensor(y_val).to(torch.bfloat16)
+        G = torch.Tensor(G)
+        C = torch.Tensor(C)
+        y = torch.Tensor(y)
+        G_val = torch.Tensor(G_val)
+        C_val = torch.Tensor(C_val)
+        y_val = torch.Tensor(y_val)
 
         G_torch = G.to(device)
         C_torch = C.to(device)
@@ -390,6 +400,10 @@ class G2P_Model(nn.Module):
         else:
             n_val_samples = 0
 
+        # Computer GT^G for posterior computation
+        # GT_G = (torch.transpose(G_torch, 0, 1) @ G_torch).cpu()
+        GT_G = (torch.transpose(G, 0, 1) @ G)
+
         # Initialize the Adam optimizer with learning rate and weight decay as input arguments from the user
         optimizer = torch.optim.Adam(
             self.parameters(),
@@ -405,7 +419,7 @@ class G2P_Model(nn.Module):
             wandb.run.summary["covariate_r2"] = common_r2
 
         # PyTorch speed-up trick
-        scaler = torch.cuda.amp.GradScaler(enabled=False)
+        scaler = torch.cuda.amp.GradScaler()
 
         # Instantiate early stopper
         if args["early_stopping"]:
@@ -452,25 +466,23 @@ class G2P_Model(nn.Module):
 
                 # PyTorch speed-up trick
                 with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                    # Compute -log(likelihood). Here "pred" is an object of the class MultivariateNormal
+                # Compute -log(likelihood). Here "pred" is an object of the class MultivariateNormal
                     pred = self.forward(G_batch, emb_torch, C_batch)
                     loss = -pred.log_prob(y_batch).mean()
 
                     # Add extra regularization to the loss
                     if "alpha_L1_fE" in args:
                         loss += args["alpha_L1_fE"] * torch.norm(
-                            self.var_pred_model(emb_torch)[0], p=1
-                        )
+                                self.var_pred_model(emb_torch)[0], p=1
+                            )
                     if "alpha_L2_fE" in args:
                         loss += args["alpha_L2_fE"] * torch.norm(
-                            self.var_pred_model(emb_torch)[0], p=2
-                        )
-                    if "alpha_L1_gene_var" in args and (
-                        not (self.var_pred_model.gene_var is None)
-                    ):
+                                self.var_pred_model(emb_torch)[0], p=2
+                            )
+                    if "alpha_L1_gene_var" in args and (not (self.var_pred_model.gene_var is None)):
                         loss += args["alpha_L1_gene_var"] * torch.norm(
-                            self.var_pred_model.gene_var, p=1
-                        )
+                                self.var_pred_model.gene_var, p=1
+                            )
 
                 # PyTorch speed-up trick
                 scaler.scale(loss).backward()
@@ -494,12 +506,11 @@ class G2P_Model(nn.Module):
                 G_batch, C_batch, y_batch = dataset_val[i : i + batch_size]
 
                 # Compute prediction and -log(likelihood) on validation data
-                with torch.no_grad():
-                    with torch.autocast(device_type="cuda", dtype=torch.bfloat16):
-                        pred = self.forward(G_batch, emb_torch, C_batch)
-                        val_loss += -pred.log_prob(
-                            y_batch
-                        ).mean().detach().item() * len(y_batch)
+                with torch.no_grad(): 
+                    pred = self.forward(G_batch, emb_torch, C_batch)
+                    val_loss += -pred.log_prob(
+                        y_batch
+                    ).mean().detach().item() * len(y_batch)
 
             # Record loss on validation set
             if n_val_samples:
@@ -507,25 +518,28 @@ class G2P_Model(nn.Module):
                 if (
                     self.val_loss_list[-1] < self.best_loss
                 ) and follow_metric == "loss":
-                    self._update_best_params()
+                    #self._update_best_params()
                     self.best_loss = self.val_loss_list[-1]
 
             logger.info(f"Epoch {epoch}: Val loss: {self.val_loss_list[-1]}")
 
             # Compute R^2 on train and validation set
             if (follow_metric == "r2") or (epoch + 1 == args["epochs"]):
-                self.posterior_beta, self.posterior_var_beta = (
+                self.posterior_beta, _ = (
                     self._get_posterior_params(
                         G,
                         C,
                         y,
+                        GT_G,
                         self.prior_var.detach().cpu(),
                         self.gamma.detach().cpu(),
                         self.intercept.detach().cpu(),
                         self.var.detach().cpu(),
+                        faster=True,
                     )
                 )
-
+                
+                self._update_best_params()
                 train_r2 = r2_score(
                     y.to(torch.float32).numpy(), ((G @ self.posterior_beta) + (C @ self.gamma.detach().cpu()) + self.intercept.detach().cpu()).to(torch.float32).numpy()
                 )
@@ -564,17 +578,23 @@ class G2P_Model(nn.Module):
                     logger.info("Early stop")
                     break
 
+        del GT_G # Free up memory
+
         # Compute posterior using train and validation data to evaluate model on test set.
         if n_val_samples:
+            # compute GT_G for the whole matrix
+            GT_G_trainval = (torch.transpose(torch.cat([G, G_val]), 0, 1) @ torch.cat([G, G_val]))
             self.best_posterior_mean_beta, self.best_posterior_var_beta = (
                 self._get_posterior_params(
                     torch.cat([G, G_val]),
                     torch.cat([C, C_val]),
                     torch.cat([y, y_val]),
-                    self.best_prior_var.detach().cpu(),
-                    self.best_gamma.detach().cpu(),
-                    self.best_intercept.detach().cpu(),
-                    self.best_var.detach().cpu(),
+                    GT_G_trainval,
+                    torch.Tensor(self.best_prior_var),
+                    torch.Tensor(self.best_gamma),
+                    torch.Tensor(self.best_intercept),
+                    torch.Tensor(self.best_var),
+                    faster=False,
                 )
             )
 
