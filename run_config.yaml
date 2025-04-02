@@ -1,20 +1,20 @@
 experiment_name: fp_beta1
-output_dir_base: /s/project/geno2pheno/predictions/funcrvp_beta/
-hgnc_gene_names: /s/project/geno2pheno/data/hgnc2ensg.tsv
+output_dir_base: <<INSERT PATH>>
+hgnc_gene_names: <<INSERT PATH>>
 
 dataloader_params:
-  embedding_path: /s/project/geno2pheno/data/embeddings/pops_mat_pca256_omics.tsv
-  genotype_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_wes_500k_DeepRVAT_final_090924_medianshifted.parquet
-  phenotype_dir: /s/project/uk_biobank/clean/decoded_phenotypes
+  embedding_path: <<INSERT PATH>>
+  genotype_path: <<INSERT PATH>>
+  phenotype_dir: <<INSERT PATH>>
   use_prs: true
   normalize_covariates: true
   dataset_version: filteredv3
   test_split_size: 0.25
   val_split_size: 0.1
   split_seed: 0
-  train_individuals_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_wes_200k_ensembl_loftee_plof_pivot.parquet
-  covariates_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_500k_covariates_filteredv3.parquet
-  prs_path: /s/project/uk_biobank/clean/derived_datasets/ukbb_common_traits_and_covariates_with_split_and_residuals_500k_filteredv3.parquet
+  train_individuals_path: <<INSERT PATH>>
+  covariates_path: <<INSERT PATH>>
+  prs_path: <<INSERT PATH>>
   # gene_subset:
   #   - ENSG00000130164
   #   - ENSG00000169174
@@ -29,8 +29,8 @@ training_params:
   early_stopping: False
   wandb_logging: True
   wandb_project_name: funcrvp_beta
-  wandb_dir: /s/project/geno2pheno/wandb/funcrvp/
-  old_optuna_journal_log: /s/project/geno2pheno/hyperopt/optuna/journal.log
+  wandb_dir: <<INSERT PATH>>
+  old_optuna_journal_log: <<INSERT PATH>>
   old_model_version: v108cov_deepRVAT
   old_model_embedding: omics_pops
 
