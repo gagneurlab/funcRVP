@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 # --- Configuration Loading ---
 data_paths_file = './scripts/utils/data_paths.yaml' # Changed to .yaml
 if not os.path.exists(data_paths_file):
-    logger.error(f"Configuration file not found: {data_paths_file}")
+    logger.error(f"Configuration file not found: {data_paths_file}\nExiting.")
     sys.exit(1)
 with open(data_paths_file, 'r') as f: # Open and load yaml
     data_paths = yaml.safe_load(f)
@@ -46,104 +46,110 @@ def load_data(
     dataset_version: Optional[str]="filteredv3", #TODO: add this to file paths
 ):
 
-    # logger.info(f"Loading data for trait: {trait}, genotype: {genotype}, embedding: {embedding_type}")
-
-    # if genotype in data_paths['genotype_paths'].keys():
-    #     genotype_path = data_paths['genotype_paths'][genotype]
-    # else:
-    #     logger.warning(f"Genotype '{genotype}' not found in config, defaulting to pLOF genotype.")
-    #     genotype_path = data_paths.get('paths', 'plof') # Using config path for default
-
-    if not os.path.exists(genotype_path):
-        logger.error(f"Genotype path not found: {genotype_path}")
-        sys.exit(1)
-
     # Read GIS matrix
-    logger.info(f"Reading genotype data from: {genotype_path}")
-    if gene_subset:  # Want to run it on a subset of genes
-        logger.info(f"Using a subset of genes: {gene_subset}")
-        GT_df = pd.read_parquet(genotype_path, columns=gene_subset).reset_index()
+    if genotype_path:
+        if os.path.exists(genotype_path):
+            logger.info(f"Reading genotype data from: {genotype_path}")
+            if gene_subset:  # Want to run it on a subset of genes
+                logger.info(f"Using a subset of genes: {gene_subset}")
+                GT_df = pd.read_parquet(genotype_path, columns=gene_subset).reset_index()
+            else:
+                GT_df = pd.read_parquet(genotype_path).reset_index()
+        else:
+            logger.error(f"Genotype path not found: {genotype_path}\nExiting.")
+            sys.exit(1)
     else:
-        GT_df = pd.read_parquet(genotype_path).reset_index()
+        logger.error(f"Genotype path not defined in the config file.\nExiting.")
+        sys.exit(1)
 
     gene_list = sorted(list(GT_df.columns))
 
-    # Read embedding vectors
-    # emb = None # Initialize emb to None, handle no embedding case properly
-    # if embedding_type:
-    #     if embedding_type not in data_paths['embedding_paths'].keys():
-    #         logger.error(f"Embedding type '{embedding_type}' not found in config.")
-    #         sys.exit(1)
-    #     embedding_path = data_paths['embedding_paths'][embedding_type]
-    if os.path.exists(embedding_path):
-        logger.info(f"Reading gene embeddings from: {embedding_path}")
-        gene_embeddings_df = (
-            pd.read_csv(embedding_path, sep="\t")
-            .rename(columns={"gene_id": "gene"})
-            .sort_values("gene")
-        )
-        gene_list = sorted(
-            set(gene_embeddings_df.sort_values("gene")["gene"]).intersection(
-                set(gene_list)
+    # Read gene embeddings    
+    if embedding_path:
+        if os.path.exists(embedding_path):
+            logger.info(f"Reading gene embeddings from: {embedding_path}")
+            gene_embeddings_df = (
+                pd.read_csv(embedding_path, sep="\t")
+                .rename(columns={"gene_id": "gene"})
+                .sort_values("gene")
             )
-        )
-        gene_embeddings_df = (
-            gene_embeddings_df.set_index("gene").loc[gene_list].reset_index()
-        )
-        gene_embeddings_df = gene_embeddings_df.set_index("gene")
-        gene_embeddings_df = gene_embeddings_df[
-            gene_embeddings_df.index.isin(gene_list)
-        ]
-        gene_embeddings_df = gene_embeddings_df[
-            ~gene_embeddings_df.index.duplicated(keep="first")
-        ]
-        emb = gene_embeddings_df.values
+            gene_list = sorted(
+                set(gene_embeddings_df.sort_values("gene")["gene"]).intersection(
+                    set(gene_list)
+                )
+            )
+            gene_embeddings_df = (
+                gene_embeddings_df.set_index("gene").loc[gene_list].reset_index()
+            )
+            gene_embeddings_df = gene_embeddings_df.set_index("gene")
+            gene_embeddings_df = gene_embeddings_df[
+                gene_embeddings_df.index.isin(gene_list)
+            ]
+            gene_embeddings_df = gene_embeddings_df[
+                ~gene_embeddings_df.index.duplicated(keep="first")
+            ]
+            emb = gene_embeddings_df.values
+        else:
+            logger.info(f"Embedding path does not exist {embedding_path}\nProceeding without embeddings.")
+            emb = None
     else:
         logger.info("No embedding type specified, proceeding without embeddings.")
+        emb = None
 
     # Filter GIS to include only those genes whose embedding is available
     GT_df = GT_df[["individual"] + gene_list]
 
     # Read phenotype
-    # phenotype_dir = data_paths.get('phenotype_dir') # Get pheno data dir from config
-    if not os.path.exists(phenotype_dir):
-        logger.error(f"Phenotype data path not found: {phenotype_dir}")
+    if phenotype_dir:
+        if os.path.exists(phenotype_dir):
+            raw_pheno = trait_INT_zscore(trait, phenotype_dir) # Pass pheno_data_dir
+        else:
+            logger.error(f"Phenotype data path not found: {phenotype_dir}\nExiting.")
+            sys.exit(1)
+    else:
+        logger.error(f"Phenotype data path not defined in the config file.\nExiting.")
         sys.exit(1)
-
-    raw_pheno = trait_INT_zscore(trait, phenotype_dir) # Pass pheno_data_dir
 
     # Read covariates and PRS
     covariates_path = data_paths['covariate_paths'].get('covariates_path')
     prs_path = data_paths['covariate_paths'].get('prs_path')
-    if os.path.exists(covariates_path):
-        logger.info(f"Reading covariates from: {covariates_path}")
-        # TODO: Add check for what columns are being used form the covariates file.
-        covs_dt = pd.read_parquet(covariates_path).dropna()
-        logger.info(f"Using covariates: {covs_dt.columns}")
-
+    if covariates_path:
+        if os.path.exists(covariates_path):
+            logger.info(f"Reading covariates from: {covariates_path}")
+            # TODO: Add check for what columns are being used form the covariates file.
+            covs_dt = pd.read_parquet(covariates_path).dropna()
+            logger.info(f"Using covariates: {covs_dt.columns}")
+        else:
+            logger.error(f"Covariates path not found: {covariates_path}\nProceeding without covariates.")
+            covs_dt = pd.DataFrame(columns=["individual"])
     else:
-        logger.error(f"Covariates path not found: {covariates_path} \nProceeding without covariates.")
+        logger.info("No covariates path specified, proceeding without covariates.")
+        covs_dt = pd.DataFrame(columns=["individual"])
 
-    if use_prs and os.path.exists(prs_path):
-        logger.info(f"Reading PRS from: {prs_path}")
-        prs_df = pd.read_parquet(prs_path,
-            columns=["individual", f"{trait}_PRS", f"{trait}_common_resid"],
-        ).dropna()
+    if use_prs:
+        if prs_path:
+            if os.path.exists(prs_path):
+                logger.info(f"Reading PRS from: {prs_path}")
+                prs_df = pd.read_parquet(prs_path,
+                    columns=["individual", f"{trait}_PRS", f"{trait}_common_resid"],
+                ).dropna()
 
-        raw_pheno = raw_pheno.merge(
-            prs_df[["individual", f"{trait}_common_resid"]], on="individual", how="inner"
-        )
+                raw_pheno = raw_pheno.merge(
+                    prs_df[["individual", f"{trait}_common_resid"]], on="individual", how="inner"
+                )
 
-        try:
-            covs_dt = covs_dt.merge(
-                prs_df[["individual", f"{trait}_PRS"]], on="individual", how="inner"
-            )
-        except:
-            covs_dt = prs_df
-
-    elif use_prs and not os.path.exists(prs_path):
-        logger.error(f"PRS path not found: {prs_path}\nProceeding without PRS.")
-        use_prs = False
+                try:
+                    covs_dt = covs_dt.merge(
+                        prs_df[["individual", f"{trait}_PRS"]], on="individual", how="inner"
+                    )
+                except:
+                    covs_dt = prs_df
+            else:
+                logger.error(f"PRS path not found: {prs_path}\nProceeding without PRS.")
+                use_prs = False
+        else:
+            logger.error(f"PRS path not defined in the config file.\nProceeding without PRS.")
+            use_prs = False
 
     # Get individuals for who all data is available
     try:
@@ -157,7 +163,7 @@ def load_data(
     # Individuals to be used only in the train split
     # Set a seed for split reproducibility
     np.random.seed(split_seed)
-    if os.path.exists(train_individuals_path):
+    if train_individuals_path and os.path.exists(train_individuals_path):
         logger.info(f"Reading train individuals list from: {train_individuals_path}")
         train_inds = pd.read_parquet(train_individuals_path).reset_index()[["individual"]]
 
@@ -185,6 +191,7 @@ def load_data(
             size=remaining_rows.sum(),
             p=[remaining_train_proportion, val_proportion, test_proportion],
         )
+
     else:
         # This block handles the standard random split when no predefined train list is given
         logger.info(f"Train individuals path not found or not specified: {train_individuals_path}. Performing standard random split.")

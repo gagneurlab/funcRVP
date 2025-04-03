@@ -120,11 +120,7 @@ def save_model_outputs(
     embedding = dataloader_params.get('embedding_path', None).split("/")[-1].split(".")[0]
     dataset_version = dataloader_params.get("dataset_version", "filteredv3")
 
-    # Save run_config to experiment directory
-    run_op_dir = os.path.join(output_dir, genotype, embedding)
-    os.makedirs(run_op_dir, exist_ok=True)
-
-    config_copy_path = os.path.join(run_op_dir, "run_config.yaml")
+    config_copy_path = os.path.join(output_dir, "run_config.yaml")
     with open(config_copy_path, "w") as f:
         yaml.dump(config, f, indent=2)  # Save the entire config
     logger.info(f"Run configuration saved to: {config_copy_path}")
@@ -174,7 +170,7 @@ def save_model_outputs(
         betas_df["dataset_version"] = dataset_version
         betas_df["experiment_name"] = experiment_name
 
-        output_mean_betas_path = os.path.join(run_op_dir, f"{trait}_betas.pq")
+        output_mean_betas_path = os.path.join(output_dir, f"{trait}_betas.pq")
         logger.info(f"Saving betas to: {output_mean_betas_path}")
         betas_df.to_parquet(output_mean_betas_path)
 
@@ -194,7 +190,7 @@ def save_model_outputs(
         phenopred_df["dataset_version"] = dataset_version
         phenopred_df["experiment_name"] = experiment_name
 
-        output_bayes_pred_path = os.path.join(run_op_dir, f"{trait}_phenopred.pq")
+        output_bayes_pred_path = os.path.join(output_dir, f"{trait}_phenopred.pq")
         logger.info(f"Saving phenotype predictions to: {output_bayes_pred_path}")
         phenopred_df.to_parquet(output_bayes_pred_path)
 

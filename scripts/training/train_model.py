@@ -89,7 +89,7 @@ def trainer_(
             device=device,
         ).to(device)
 
-        g2p_cov_model = torch.compile(g2p_cov_model) # Compile the model for better performance
+        g2p_cov_model = torch.compile(g2p_cov_model, dynamic=False, mode='max-autotune-no-cudagraphs') #Compile the model for better performance
 
         # Initialize weights and biases
         if training_params.get('wandb_logging', False):
@@ -135,7 +135,6 @@ def trainer(
     trait: str,
     config_path: Path,
 ):
-    # TODO! Define a Minimum config file.
     # --- Run Configuration Loading (load_data parameters) ---
     if not os.path.exists(config_path):
         logger.warning(f"Run configuration file not found: {config_path}. Using default parameters.") # Warning instead of error, defaults will be used.
@@ -161,11 +160,11 @@ def trainer(
         (covariates_train, covariates_val, covariates_test),
     ) = dataloader.load_data(
         trait,
-        embedding_path = dataloader_params.get('embedding_path', '-1'),
-        genotype_path = dataloader_params.get('genotype_path', '-1'),
-        phenotype_dir= dataloader_params.get('phenotype_dir', '-1'),
-        covariates_path = dataloader_params.get('covariates_path', '-1'),
-        prs_path = dataloader_params.get('prs_path', '-1'),
+        embedding_path = dataloader_params.get('embedding_path', None), 
+        genotype_path = dataloader_params.get('genotype_path', None),
+        phenotype_dir= dataloader_params.get('phenotype_dir', None),
+        covariates_path = dataloader_params.get('covariates_path', None),
+        prs_path = dataloader_params.get('prs_path', None),
         train_individuals_path = dataloader_params.get('train_individuals_path', '-1'),
         test_split_size = dataloader_params.get('test_split_size', 0.25),
         val_split_size = dataloader_params.get('val_split_size', 0.1),
@@ -230,7 +229,7 @@ def trainer(
     else:
         # TODO Get optuna suggestions for hyperparams
         logger.info("Hyperparameter optimization is under development.")
-        exit()
+        sys.exit(1)
 
         logger.info("Hyperparameter optimization enabled.")
 
@@ -293,8 +292,14 @@ def trainer(
         logger.info(f"Number of finished trials: {len(study.trials)}")
 
     # --- Create Experiment Directory ---
+    if config.get('output_dir_base', None):
+        run_op_dir = os.path.join(config['output_dir_base'], genotype, embedding)
+    else:
+        logger.error("Output directory not defined in config. Exiting.")
+        sys.exit(1)
+
     output_dir_name = f"{config.get('experiment_name', 'default')}_{dataloader_params.get('dataset_version', 'filteredv3')}"
-    output_dir = os.path.join(config['output_dir_base'], output_dir_name)
+    output_dir = os.path.join(run_op_dir, output_dir_name)
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Experiment directory created: {output_dir}")
 
@@ -304,9 +309,6 @@ def trainer(
     logger.info("Generating predictions on the test set...")
     with torch.no_grad(): # Disable gradient calculations
         best_model_test_pred = (gt_test @ g2p_cov_model.best_posterior_mean_beta) + (covariates_test@g2p_cov_model.best_gamma) + g2p_cov_model.best_intercept
-        
-        # Get prediciton on the test set
-        # best_model_test_pred = (gt_test @ g2p_cov_model.best_posterior_mean_beta.detach().cpu().to(torch.float32).numpy()) + (covariates_test@g2p_cov_model.best_gamma.detach().cpu().to(torch.float32).numpy()) + g2p_cov_model.best_intercept.detach().cpu().to(torch.float32).numpy()
 
         logger.info(f"--- Saving Model Outputs to {output_dir} ---")
         utils.save_model_outputs(g2p_cov_model, trait_measurement_test, y_test_residual, best_model_test_pred, id_test, gene_list, trait, output_dir, config)
