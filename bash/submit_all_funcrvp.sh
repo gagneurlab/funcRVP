@@ -1,5 +1,5 @@
 #!/bin/bash
-yaml_file="run_config.yaml" # Replace with your YAML file path
+yaml_file="run_config_local.yaml" # Replace with your YAML file path
 
 # Check if file exists
 if [ ! -f "$yaml_file" ]; then
@@ -16,8 +16,9 @@ readarray -t output_array < <(python3 -c "$python_command")
 # Loop through the array
 for trait in "${output_array[@]}"; do
     echo "Trait: $trait"
-    sbatch ./bash/run_trainer.sh "$trait" "$yaml_file"
+    sbatch -p urgent ./bash/run_trainer.sh "$trait" "$yaml_file"
 done
 
 # Consolidate results
-sbatch ./bash/consolidate_results.sh "$yaml_file"
+# sbatch -p urgent ./bash/run_trainer_test.sh
+# sbatch -d "$dependency_string" ./bash/consolidate_results.sh "$yaml_file"
