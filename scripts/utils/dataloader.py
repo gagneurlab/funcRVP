@@ -62,7 +62,7 @@ def load_data(
         logger.error(f"Genotype path not defined in the config file.\nExiting.")
         sys.exit(1)
 
-    gene_list = sorted(list(GT_df.columns))
+    gene_list = sorted(set(sorted(list(GT_df.columns))) - set(["individual"]))
 
     # Read gene embeddings    
     if embedding_path:
@@ -159,16 +159,17 @@ def load_data(
     except:
         inds =  GT_df[["individual"]]
 
-    #TODO: add else condition to handle missing train_individuals_path, just skip this whole block.
     # Individuals to be used only in the train split
     # Set a seed for split reproducibility
     np.random.seed(split_seed)
     if train_individuals_path and os.path.exists(train_individuals_path):
         logger.info(f"Reading train individuals list from: {train_individuals_path}")
-        train_inds = pd.read_parquet(train_individuals_path).reset_index()[["individual"]]
+        train_inds = pd.read_parquet(train_individuals_path, columns=['individual']).reset_index()[["individual"]]
 
+        # import ipdb; ipdb.set_trace()
         # Assign 'train' to rows where the 'group' column is in train_groups
-        inds["split"] = np.nan
+        if "split" not in inds.columns:
+            inds["split"] = np.nan
         inds.loc[inds["individual"].isin(train_inds.individual), "split"] = "train"
 
         # Compute train/val/test proportions based on some criteria
