@@ -43,10 +43,10 @@ def trainer_(
     covariates_val: np.ndarray,
     trait_measurement_val: np.ndarray,
     n_repeats: Optional[int]=1,
-    best_n_hidden: Optional[int]=1,
     best_model_arch: Optional[dict]=None,
-    y_var_init: Optional[float]=1e-3,
-    base_var_init: Optional[float]=1e-5,
+    # best_n_hidden: Optional[int]=1,
+    # y_var_init: Optional[float]=1e-3,
+    # base_var_init: Optional[float]=1e-5,
     training_params: Optional[dict]=None,
 ):
     """
@@ -71,6 +71,7 @@ def trainer_(
     Returns:
         g2p_bayes_model.G2P_Model: Trained G2P model.
     """
+    training_params['best_model_arch'] = best_model_arch
     for rep in range(n_repeats):
 
         logger.info(f"Training model for {trait} - Repetition {rep+1}/{n_repeats}")
@@ -78,12 +79,12 @@ def trainer_(
         g2p_cov_model = g2p_bayes_model.G2P_Model(
             emb.shape[1], # embedding_dim
             covariates_train.shape[1],
-            n_hidden=best_n_hidden,
+            n_hidden=best_model_arch["n_hidden"],
             hiddem_dim=best_model_arch["hidden_dim"],
             last_layer_bias=best_model_arch["last_layer_bias"],
             nonlinearity=training_params['nonlinearity'],
-            y_var_init=y_var_init,
-            base_var_init=base_var_init,
+            y_var_init=best_model_arch['y_var_init'],
+            base_var_init=best_model_arch['base_var_init'],
             base_var_const=0, 
             n_genes=emb.shape[0],
             device=device,
@@ -96,7 +97,6 @@ def trainer_(
             logger.info(f"Writing wandb logs to {training_params['wandb_dir']}")
             wandb.init(
                 project=training_params['wandb_project_name'],
-                # name=training_params['wandb_project_name'],
                 config=training_params,
                 dir=training_params['wandb_dir'],
                 settings=wandb.Settings(_service_wait=600),
@@ -117,6 +117,7 @@ def trainer_(
             logging=training_params['wandb_logging'],
             device=device,
         )
+
         logger.info("Model training finished.")
         if training_params['wandb_logging']:
             wandb.finish()
@@ -199,14 +200,17 @@ def trainer(
             storage_path=training_params['old_optuna_journal_log'] # Access paths through 'config'
         )
 
+        best_model_arch["y_var_init"] = y_train_residual.var()
+        
         # TODO! should we specify below numbers in the config file?
         # To get constant regularization
         if embedding == None:
-            best_n_hidden = -1
-            base_var_init = 5e-3
+            # best_n_hidden = -1
+            best_model_arch["n_hidden"] = -1 # number of hidden layers in f(E)
+            best_model_arch["base_var_init"] = 5e-3
         else:
-            best_n_hidden = best_model_arch["n_hidden"]  # number of hidden layers in f(E)
-            base_var_init = 5e-5
+            # best_n_hidden = best_model_arch["n_hidden"]  # number of hidden layers in f(E)
+            best_model_arch["base_var_init"] = 5e-5
 
         g2p_cov_model = trainer_( # Call trainer_ to train with fixed arch
             trait=trait,
@@ -218,11 +222,11 @@ def trainer(
             covariates_val=covariates_val,
             trait_measurement_val=trait_measurement_val,
             n_repeats=1,
-            best_n_hidden=best_n_hidden,
             best_model_arch=best_model_arch,
-            y_var_init=y_train_residual.var(),
-            base_var_init=base_var_init,
             training_params=training_params,
+            # best_n_hidden=best_n_hidden,
+            # y_var_init=y_train_residual.var(),
+            # base_var_init=base_var_init,
         )
 
     # TODO fix optuna suggetions for hyperparams
@@ -308,7 +312,7 @@ def trainer(
 
     logger.info("Generating predictions on the test set...")
     with torch.no_grad(): # Disable gradient calculations
-        best_model_test_pred = (gt_test @ g2p_cov_model.best_posterior_mean_beta) + (covariates_test@g2p_cov_model.best_gamma) + g2p_cov_model.best_intercept
+        best_model_test_pred = ((gt_test @ g2p_cov_model.best_posterior_mean_beta) + (covariates_test@g2p_cov_model.best_gamma) + g2p_cov_model.best_intercept)
 
         logger.info(f"--- Saving Model Outputs to {output_dir} ---")
         utils.save_model_outputs(g2p_cov_model, trait_measurement_test, y_test_residual, best_model_test_pred, id_test, gene_list, trait, output_dir, config)

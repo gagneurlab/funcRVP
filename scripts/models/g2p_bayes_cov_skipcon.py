@@ -286,7 +286,7 @@ class G2P_Model(nn.Module):
                     @ (y - ((C @ gamma) + intercept))
                 )
                 var_beta = torch.diag(sigma)
-            return tensor_to_numpy(mean_beta), tensor_to_numpy(var_beta)
+            return mean_beta, var_beta
 
     def _update_best_params(self):
         """Updates best params if current validation metric is better."""
@@ -369,32 +369,32 @@ class G2P_Model(nn.Module):
             logger.info(f"Covariates r2 on val: {common_r2}")
 
         # Initialize covariate effects in FuncRVP = effect of covariates from the LM
-        self.var_pred_model.gamma.data = torch.Tensor(lm.coef_).to(device)
+        self.var_pred_model.gamma.data = torch.as_tensor(lm.coef_, dtype=torch.float32).to(device)
 
         # Initialize intercept in FuncRVP = effect of covariates from the LM
-        self.var_pred_model.intercept.data = torch.Tensor([lm.intercept_]).to(device)
+        self.var_pred_model.intercept.data = torch.as_tensor([lm.intercept_], dtype=torch.float32).to(device)
 
         logger.info("Uploading data to GPU")
-        emb_torch = torch.Tensor(emb).to(device)
+        emb_torch = torch.as_tensor(emb, dtype=torch.float32).to(device)
 
         #TODO seems redundant
-        G = torch.Tensor(G)
-        C = torch.Tensor(C)
-        y = torch.Tensor(y)
-        G_val = torch.Tensor(G_val)
-        C_val = torch.Tensor(C_val)
-        y_val = torch.Tensor(y_val)
+        G = torch.as_tensor(G, dtype=torch.float32)
+        C = torch.as_tensor(C, dtype=torch.float32)
+        y = torch.as_tensor(y, dtype=torch.float32)
+        G_val = torch.as_tensor(G_val, dtype=torch.float32)
+        C_val = torch.as_tensor(C_val, dtype=torch.float32)
+        y_val = torch.as_tensor(y_val, dtype=torch.float32)
 
-        G_torch = G.to(device)
-        C_torch = C.to(device)
-        y_torch = y.to(device)
+        G_torch = G.to(device, non_blocking=True)
+        C_torch = C.to(device, non_blocking=True)
+        y_torch = y.to(device, non_blocking=True)
         dataset_train = torch.utils.data.TensorDataset(G_torch, C_torch, y_torch) 
         n_train_samples = len(dataset_train)
 
         if (G_val is not None) and (C_val is not None) and (y_val is not None):
-            G_val_torch = G_val.to(device)
-            C_val_torch = C_val.to(device)
-            y_val_torch = y_val.to(device)
+            G_val_torch = G_val.to(device, non_blocking=True)
+            C_val_torch = C_val.to(device, non_blocking=True)
+            y_val_torch = y_val.to(device, non_blocking=True)
             dataset_val = torch.utils.data.TensorDataset(G_val_torch, C_val_torch, y_val_torch)
             n_val_samples = len(dataset_val)
         else:
@@ -491,7 +491,7 @@ class G2P_Model(nn.Module):
 
                 # Record epoch loss
                 epoch_loss += loss.detach().item() * len(y_batch)
-                self.train_loss_list.append(loss.detach().item() / len(indices))
+                # self.train_loss_list.append(loss.detach().item() / len(indices))
 
             self.train_loss_list.append(epoch_loss / n_train_samples)
 
@@ -541,18 +541,16 @@ class G2P_Model(nn.Module):
                 
                 self._update_best_params()
                 train_r2 = r2_score(
-                    y.to(torch.float32).numpy(), ((G @ self.posterior_beta) + (C @ self.gamma.detach().cpu()) + self.intercept.detach().cpu()).to(torch.float32).numpy()
+                    y.numpy(), ((G @ self.posterior_beta) + (C @ self.gamma.detach().cpu()) + self.intercept.detach().cpu()).numpy()
                 )
                 self.train_r2_list.append(train_r2)
 
                 if n_val_samples:
                     val_r2 = r2_score(
-                        y_val.to(torch.float32).numpy(),
-                        ((G_val @ self.posterior_beta) + (C_val @ self.gamma.detach().cpu()) + self.intercept.detach().cpu()).to(torch.float32).numpy()
+                        y_val.numpy(),
+                        ((G_val @ self.posterior_beta) + (C_val @ self.gamma.detach().cpu()) + self.intercept.detach().cpu()).numpy()
                     )
                     self.val_r2_list.append(val_r2)
-                    # if trial is not None:
-                    #     trial.report(val_r2, self.total_epochs_trained)
 
                     if (val_r2 > self.best_r2) and follow_metric == "r2":
                         self.best_r2 = val_r2
@@ -590,13 +588,15 @@ class G2P_Model(nn.Module):
                     torch.cat([C, C_val]),
                     torch.cat([y, y_val]),
                     GT_G_trainval,
-                    torch.Tensor(self.best_prior_var),
-                    torch.Tensor(self.best_gamma),
-                    torch.Tensor(self.best_intercept),
-                    torch.Tensor(self.best_var),
+                    torch.as_tensor(self.best_prior_var),
+                    torch.as_tensor(self.best_gamma),
+                    torch.as_tensor(self.best_intercept),
+                    torch.as_tensor(self.best_var),
                     faster=False,
                 )
             )
+            self.best_posterior_mean_beta = self.best_posterior_mean_beta.numpy()  
+            self.best_posterior_var_beta = self.best_posterior_var_beta.numpy()
 
 
 if __name__ == "__main__":

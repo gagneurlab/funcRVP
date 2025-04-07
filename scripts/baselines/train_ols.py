@@ -58,7 +58,7 @@ def association_test(
         yaml.dump(config, f, indent=2)  # Save the entire config
     logger.info(f"Run configuration saved to: {config_copy_path}")
 
-    outfile = os.path.join(ols_op_dir, f"{trait}_rvat.parquet")
+    outfile = os.path.join(ols_op_dir, f"{trait}_rvat.pq")
     if os.path.isfile(outfile):
         logger.info(f"Output file already exists: {outfile}. Exiting.")
         return
@@ -180,13 +180,13 @@ def lm_phenopred(
         yaml.dump(config, f, indent=2)  # Save the entire config
     logger.info(f"Run configuration saved to: {config_copy_path}")
 
-    outfile = os.path.join(ols_op_dir, f"{trait}_phenopred_{pval_threshold}.parquet")
+    outfile = os.path.join(ols_op_dir, f"{trait}_phenopred_{pval_threshold}.pq")
     if os.path.isfile(outfile):
         logger.info(f"Output file already exists: {outfile}. Exiting.")
         return
 
     # --- Check if input file exists ---
-    infile = os.path.join(ols_op_dir, f"{trait}_rvat.parquet")
+    infile = os.path.join(ols_op_dir, f"{trait}_rvat.pq")
     if not os.path.isfile(infile):
         logger.info(f"Input file not found: {infile}. Running association test first.")
         # association_test(trait, config_path)
