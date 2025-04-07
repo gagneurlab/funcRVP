@@ -25,7 +25,7 @@ training_params:
   nonlinearity: softplus # choose from ['relu', 'silu', 'elu', 'gelu', 'softplus']
   follow_metric: r2
   weight_decay: 0
-  batch_size: 8196
+  batch_size: 16394
   early_stopping: False
   wandb_logging: True
   wandb_project_name: funcrvp_beta
