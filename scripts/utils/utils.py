@@ -88,6 +88,146 @@ def get_best_arch(
 
     return best_trial_params
 
+def save_model_betas(
+    g2p_cov_model,
+    gene_list,
+    trait,
+    output_dir,
+    config,
+):
+    """
+    Saves model outputs (mean betas and bayes predictions) to parquet files
+    and saves a copy of the run configuration.
+
+    Args:
+        g2p_cov_model: Trained G2P model.
+        gene_list: List of gene names.
+        trait: Trait name.
+        output_dir: Directory to save outputs in.
+        config: Run configuration dictionary.
+    """
+
+    logger.info("Saving model outputs...")
+
+    experiment_name = config.get("experiment_name", "default")
+    dataloader_params = config.get("dataloader_params", None)
+    genotype = dataloader_params.get('genotype_path', None).split("/")[-1].split(".")[0]
+    embedding = dataloader_params.get('embedding_path', None).split("/")[-1].split(".")[0]
+    dataset_version = dataloader_params.get("dataset_version", "filteredv3")
+
+    config_copy_path = os.path.join(output_dir, "run_config.yaml")
+    with open(config_copy_path, "w") as f:
+        yaml.dump(config, f, indent=2)  # Save the entire config
+    logger.info(f"Run configuration saved to: {config_copy_path}")
+
+    # Save posterior betas
+    with torch.no_grad(): # Disable gradient calculations
+        betas_df = pd.DataFrame(
+            {
+                "posterior_beta": g2p_cov_model.best_posterior_mean_beta,
+                "posterior_beta_se": np.sqrt(g2p_cov_model.best_posterior_var_beta),
+                "prior_var": g2p_cov_model.best_prior_var.flatten(),
+                "intercept": g2p_cov_model.best_intercept,
+                "y_var": g2p_cov_model.best_var,
+                "last_layer_bias": g2p_cov_model.best_last_layer_bias,
+            },
+            index=gene_list,
+        )
+        betas_df = betas_df.reset_index().rename(columns={"index": "gene_id"})
+
+        gene_names_path = config["hgnc_gene_names"]
+        if not os.path.exists(gene_names_path):
+            logger.error(f"Gene names file not found at {gene_names_path}")
+            logger.error(f"Skipping gene name merge")
+        else:
+            logger.info(f"Loading gene names from: {gene_names_path}")
+            gene_names = (
+                pd.read_csv(gene_names_path, sep="\t")[
+                    ["Ensembl gene ID", "Approved symbol"]
+                ]
+                .drop_duplicates()
+                .rename(
+                    columns={"Ensembl gene ID": "gene_id", "Approved symbol": "gene_name"}
+                )
+            )
+            betas_df = betas_df.merge(gene_names, on="gene_id")
+
+        betas_df["pd"] = np.maximum(
+            scipy.stats.norm.cdf(0, betas_df["posterior_beta"], betas_df["posterior_beta_se"]),
+            scipy.stats.norm.sf(0, betas_df["posterior_beta"], betas_df["posterior_beta_se"]),
+        )
+        betas_df["neglog_pval"] = -np.log10(1 - betas_df["pd"])
+        betas_df["significant"] = betas_df["pd"] > config.get("pd_signif_threshold", 0.999)
+        betas_df["trait"] = trait
+        betas_df["embedding"] = embedding
+        betas_df["genotype"] = genotype
+        betas_df["model"] = 'funcrvp'
+        betas_df["dataset_version"] = dataset_version
+        betas_df["experiment_name"] = experiment_name
+
+        output_mean_betas_path = os.path.join(output_dir, f"{trait}_betas.pq")
+        logger.info(f"Saving betas to: {output_mean_betas_path}")
+        betas_df.to_parquet(output_mean_betas_path)
+
+
+def save_model_predictions(
+    trait_measurement_test,
+    y_test_residual,
+    best_model_test_pred,
+    test_ids,
+    trait,
+    output_dir,
+    config,
+):
+    """
+    Saves model outputs (mean betas and bayes predictions) to parquet files
+    and saves a copy of the run configuration.
+
+    Args:
+        g2p_cov_model: Trained G2P model.
+        gene_list: List of gene names.
+        trait: Trait name.
+        output_dir: Directory to save outputs in.
+        config: Run configuration dictionary.
+    """
+
+    logger.info("Saving model outputs...")
+
+    experiment_name = config.get("experiment_name", "default")
+    dataloader_params = config.get("dataloader_params", None)
+    genotype = dataloader_params.get('genotype_path', None).split("/")[-1].split(".")[0]
+    embedding = dataloader_params.get('embedding_path', None).split("/")[-1].split(".")[0]
+    dataset_version = dataloader_params.get("dataset_version", "filteredv3")
+
+    config_copy_path = os.path.join(output_dir, "run_config.yaml")
+    with open(config_copy_path, "w") as f:
+        yaml.dump(config, f, indent=2)  # Save the entire config
+    logger.info(f"Run configuration saved to: {config_copy_path}")
+
+    # Save model predictions on test
+    with torch.no_grad(): # Disable gradient calculations
+        # Save bayes predictions
+        phenopred_df = pd.DataFrame(
+            {
+                "trait_measurement": trait_measurement_test,
+                "common_variant_residual": y_test_residual,
+                "best_prediction": best_model_test_pred,
+            },
+            index=test_ids,
+        )
+        phenopred_df["trait"] = trait
+        phenopred_df["model"] = 'funcrvp'
+        phenopred_df["embedding"] = embedding
+        phenopred_df["genotype"] = genotype
+        phenopred_df["dataset_version"] = dataset_version
+        phenopred_df["experiment_name"] = experiment_name
+
+        output_bayes_pred_path = os.path.join(output_dir, f"{trait}_phenopred.pq")
+        logger.info(f"Saving phenotype predictions to: {output_bayes_pred_path}")
+        phenopred_df.to_parquet(output_bayes_pred_path)
+
+        logger.info("All model outputs saved.")
+
 
 def save_model_outputs(
     g2p_cov_model,

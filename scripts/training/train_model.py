@@ -18,7 +18,7 @@ from pathlib import Path
 import wandb
 import optuna
 
-from ..utils import dataloader, utils
+from ..utils import dataloader_old, utils
 from ..models import g2p_bayes_cov_skipcon
 g2p_bayes_model = g2p_bayes_cov_skipcon
 
@@ -44,9 +44,6 @@ def trainer_(
     trait_measurement_val: np.ndarray,
     n_repeats: Optional[int]=1,
     best_model_arch: Optional[dict]=None,
-    # best_n_hidden: Optional[int]=1,
-    # y_var_init: Optional[float]=1e-3,
-    # base_var_init: Optional[float]=1e-5,
     training_params: Optional[dict]=None,
 ):
     """
@@ -82,7 +79,7 @@ def trainer_(
             n_hidden=best_model_arch["n_hidden"],
             hiddem_dim=best_model_arch["hidden_dim"],
             last_layer_bias=best_model_arch["last_layer_bias"],
-            nonlinearity=training_params['nonlinearity'],
+            nonlinearity=best_model_arch['nonlinearity'],
             y_var_init=best_model_arch['y_var_init'],
             base_var_init=best_model_arch['base_var_init'],
             base_var_const=0, 
@@ -132,9 +129,11 @@ def cli():
 @cli.command()
 @click.option("--trait", type=str, required=True, help="Trait to train model for")
 @click.option("--config-path", type=click.Path(exists=True), required=True, help="Config file with all details")
+@click.option("--trainval-sampling", type=float, required=False, help="How much should we sample from the training and validation set")
 def trainer(
     trait: str,
     config_path: Path,
+    trainval_sampling: Optional[float] = None,
 ):
     # --- Run Configuration Loading (load_data parameters) ---
     if not os.path.exists(config_path):
@@ -143,6 +142,8 @@ def trainer(
     else:
         with open(config_path, 'r') as f:
             config = yaml.safe_load(f)
+
+    exp_name = config.get('experiment_name', 'default')
 
     # --- Load Run Parameters from Config ---
     dataloader_params = config.get('dataloader_params', None)
@@ -159,7 +160,7 @@ def trainer(
         (id_train, id_val, id_test),
         (trait_measurement_train, trait_measurement_val, trait_measurement_test),
         (covariates_train, covariates_val, covariates_test),
-    ) = dataloader.load_data(
+    ) = dataloader_old.load_data(
         trait,
         embedding_path = dataloader_params.get('embedding_path', None), 
         genotype_path = dataloader_params.get('genotype_path', None),
@@ -169,6 +170,7 @@ def trainer(
         train_individuals_path = dataloader_params.get('train_individuals_path', '-1'),
         test_split_size = dataloader_params.get('test_split_size', 0.25),
         val_split_size = dataloader_params.get('val_split_size', 0.1),
+        trainval_sampling = trainval_sampling, #dataloader_params.get('trainval_sampling', 1),
         split_seed = dataloader_params.get('split_seed', 0),
         use_prs = dataloader_params.get('use_prs', True),
         normalize_covariates = dataloader_params.get('normalize_covariates', True),
@@ -180,25 +182,29 @@ def trainer(
         dataset_version = dataloader_params.get('dataset_version', "filteredv3"),
     )
 
+    logger.info(f"Using {gt_train.shape[0]} train samples, {gt_val.shape[0]} val samples, and {gt_test.shape[0]} test samples")
+
     # Read Training and hyperopt params from config
     training_params = config.get('training_params', None)
+    training_params['exp_name'] = exp_name
     training_params['trait'] = trait
     training_params['embedding'] = embedding
     training_params['genotype'] = genotype
 
     hpopt_params = config.get('hpopt_params', None)
-
     # If no hyperopt, get best model architecture
     hpopt_params = None
     if hpopt_params is None:
         n_repeats = training_params.get('n_repeats', 1)
 
-        best_model_arch = utils.get_best_arch(
-            trait=trait,
-            study_version=training_params['old_model_version'], # Access model_params
-            embedding_type=training_params['old_model_embedding'], # Access model_params
-            storage_path=training_params['old_optuna_journal_log'] # Access paths through 'config'
-        )
+        # best_model_arch = utils.get_best_arch(
+        #     trait=trait,
+        #     study_version=training_params['old_model_version'], # Access model_params
+        #     embedding_type=training_params['old_model_embedding'], # Access model_params
+        #     storage_path=training_params['old_optuna_journal_log'] # Access paths through 'config'
+        # )
+        hparam_df = pd.read_csv(training_params.get('hparams_df', None), sep='\t')
+        best_model_arch = hparam_df.query("trait==@trait").iloc[0].to_dict()
 
         best_model_arch["y_var_init"] = y_train_residual.var()
         
@@ -224,9 +230,6 @@ def trainer(
             n_repeats=1,
             best_model_arch=best_model_arch,
             training_params=training_params,
-            # best_n_hidden=best_n_hidden,
-            # y_var_init=y_train_residual.var(),
-            # base_var_init=base_var_init,
         )
 
     # TODO fix optuna suggetions for hyperparams
@@ -302,7 +305,8 @@ def trainer(
         logger.error("Output directory not defined in config. Exiting.")
         sys.exit(1)
 
-    output_dir_name = f"{config.get('experiment_name', 'default')}_{dataloader_params.get('dataset_version', 'filteredv3')}"
+    # output_dir_name = f"{exp_name}_{dataloader_params.get('dataset_version', 'filteredv3')}"
+    output_dir_name = f"{exp_name}_{dataloader_params.get('dataset_version', 'filteredv3')}{'_sampling' if trainval_sampling else ''}{trainval_sampling if trainval_sampling else ''}"
     output_dir = os.path.join(run_op_dir, output_dir_name)
     os.makedirs(output_dir, exist_ok=True)
     logger.info(f"Experiment directory created: {output_dir}")
@@ -315,7 +319,11 @@ def trainer(
         best_model_test_pred = ((gt_test @ g2p_cov_model.best_posterior_mean_beta) + (covariates_test@g2p_cov_model.best_gamma) + g2p_cov_model.best_intercept)
 
         logger.info(f"--- Saving Model Outputs to {output_dir} ---")
-        utils.save_model_outputs(g2p_cov_model, trait_measurement_test, y_test_residual, best_model_test_pred, id_test, gene_list, trait, output_dir, config)
+        # utils.save_model_outputs(g2p_cov_model, trait_measurement_test, y_test_residual, best_model_test_pred, id_test, gene_list, trait, output_dir, config)
+        utils.save_model_betas(g2p_cov_model, gene_list, trait, output_dir, config)
+        if len(id_test) > 0:
+            utils.save_model_predictions(trait_measurement_test, y_test_residual, best_model_test_pred, id_test, trait, output_dir, config)
+        
 
 if __name__ == "__main__":
     cli()

@@ -70,7 +70,7 @@ class VarPredModel(nn.Module):
         n_hidden: Optional[int]=0,
         hiddem_dim: Optional[int]=None,
         last_layer_bias: Optional[float]=None,
-        nonlinearity: Optional[str]="relu",
+        nonlinearity: Optional[str]="softplus",
         final_nonlinearity: Optional[str]="softplus",
         y_var_init: Optional[float]=1e-3,
         gene_var_init: Optional[float]=None,
@@ -405,7 +405,7 @@ class G2P_Model(nn.Module):
         GT_G = (torch.transpose(G, 0, 1) @ G)
 
         # Initialize the Adam optimizer with learning rate and weight decay as input arguments from the user
-        optimizer = torch.optim.Adam(
+        optimizer = torch.optim.AdamW(
             self.parameters(),
             lr=args["learning_rate_schedule"][0],
             weight_decay=args["weight_decay"],
