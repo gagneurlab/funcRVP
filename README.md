@@ -6,8 +6,8 @@ To try out the FuncRVP model on simulated example data run the [python notebook 
 
 This repo contains the scripts to train our model and benchmark the results.  
 
-## Data
---------------------------
+## Required Data
+
 To run FuncRVP you need the following data processed:
 - **Gene impairment scores matrix (samples x genes)**. This can be either simple count of pLoF variants in a gene or something more informative like a DeepRVAT score.
 - **Phenotype (samples x 1)**. The phenotypes for the corresponding samples.
@@ -15,7 +15,7 @@ To run FuncRVP you need the following data processed:
 - **Gene embeddings (genes x embedding_dimension)**. The gene embeddings for the genes you want to use for the phenotype prediction. Only the gene for which an embedding is provided will be used for phenotype prediction. We test multiple embeddings in the manuscript, all of which can be found in the [`scripts/utils/gene_embeddings`](https://github.com/gagneurlab/funcRVP/tree/orga-configs/scripts/utils/gene_embeddings) folder. 
 
 ## Requirements
---------------------------
+
 - Linux, Python (tested with v3.9, v3.11, and v3.12)
 - NVIDIA GPU (tested on A40 and L40S) for training on large datasets
 
